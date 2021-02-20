@@ -35,6 +35,7 @@
     "gflags",
     "gtest",
     "libgflags",
+    "mwcas",
     "pthread"
   ],
   "files.associations": {
