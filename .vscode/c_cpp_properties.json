@@ -8,6 +8,10 @@
       "intelliSenseMode": "linux-gcc-x64",
       "includePath": [
         "${workspaceFolder}/src",
+        "${workspaceFolder}/external/mwcas/src",
+        "${workspaceFolder}/external/mwcas/include",
+        "${workspaceFolder}/external/mwcas/external/simple-garbage-collectors/src",
+        "${workspaceFolder}/external/mwcas/external/simple-garbage-collectors/include",
         "${workspaceFolder}/external/glog/src",
         "${workspaceFolder}/external/googletest/googletest/include"
       ],

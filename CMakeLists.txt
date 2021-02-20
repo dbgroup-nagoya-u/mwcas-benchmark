@@ -14,8 +14,12 @@ project(cpp_template
 
 # define source directories
 set(PROJECT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+set(MWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
 set(GLOG_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/glog")
 set(GOOGLETEST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/googletest")
+
+# add MwCAS as a benchmark target
+add_subdirectory("${MWCAS_SOURCE_DIR}")
 
 # use glog as a logger (this also includes gflags)
 set (BUILD_TESTING OFF CACHE BOOL "" FORCE)
@@ -33,11 +37,16 @@ target_compile_options(cpp_template PRIVATE
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
 )
+target_include_directories(cpp_template PRIVATE
+  "${MWCAS_SOURCE_DIR}/include"
+)
 target_link_libraries(cpp_template PRIVATE
+  mwcas
   glog::glog
   gflags
 )
 add_dependencies(cpp_template
+  mwcas
   glog::glog
 )
 
