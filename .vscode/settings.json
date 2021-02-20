@@ -34,6 +34,7 @@
     "ctest",
     "gflags",
     "gtest",
+    "libgflags",
     "pthread"
   ],
   "files.associations": {
