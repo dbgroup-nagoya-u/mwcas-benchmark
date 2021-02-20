@@ -3,19 +3,12 @@
 
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <vector>
 
 class Worker
 {
  private:
-  /*################################################################################################
-   * Internal enum and constants
-   *##############################################################################################*/
-
-  static constexpr auto kPrivateFieldNum = 128UL;
-
   /*################################################################################################
    * Internal member variables
    *##############################################################################################*/
@@ -26,14 +19,9 @@ class Worker
 
   std::vector<size_t> exec_times_nano_;
 
- protected:
-  /*################################################################################################
-   * Inherited member variables
-   *##############################################################################################*/
+  std::vector<size_t *> shared_fields_;
 
-  std::array<size_t, kPrivateFieldNum> private_fields_;
-
-  std::vector<size_t*> shared_fields_;
+  std::vector<size_t> private_fields_;
 
  public:
   /*################################################################################################
@@ -41,15 +29,28 @@ class Worker
    *##############################################################################################*/
 
   Worker(  //
-      const std::vector<size_t*> shared_fields,
+      const size_t private_field_num,
+      const std::vector<size_t *> shared_fields,
       const size_t read_ratio,
       const size_t operation_counts)
       : read_ratio_{read_ratio}, operation_counts_{operation_counts}
   {
-    private_fields_.fill(0);
-    shared_fields_.insert(shared_fields_.begin(), shared_fields.begin(), shared_fields.end());
     exec_times_nano_.reserve(operation_counts_);
+    shared_fields_.insert(shared_fields_.begin(), shared_fields.begin(), shared_fields.end());
+    for (size_t count = 0; count < private_field_num; ++count) {
+      private_fields_.emplace_back(0);
+    }
   }
 
   ~Worker() = default;
+
+  /*################################################################################################
+   * Public utility functions
+   *##############################################################################################*/
+
+  virtual size_t ReadMwCASField(const void *target_addr);
+
+  virtual size_t PerformMwCAS(  //
+      const std::vector<size_t *> &shared_fields,
+      const std::vector<size_t> &private_fields);
 };
