@@ -27,7 +27,7 @@ add_subdirectory("${GLOG_SOURCE_DIR}")
 
 # build executable
 add_executable(cpp_template
-  "${PROJECT_SOURCE_DIR}/hello_world.cpp"
+  "${PROJECT_SOURCE_DIR}/main.cpp"
 )
 target_compile_features(cpp_template PRIVATE "cxx_std_17")
 target_compile_options(cpp_template PRIVATE
@@ -36,9 +36,6 @@ target_compile_options(cpp_template PRIVATE
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Release">:"-O2 -march=native">
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
-)
-target_include_directories(cpp_template PRIVATE
-  "${MWCAS_SOURCE_DIR}/include"
 )
 target_link_libraries(cpp_template PRIVATE
   mwcas

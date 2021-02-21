@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #include <random>
 #include <utility>
 #include <vector>
@@ -27,9 +28,13 @@ class Worker
    * Inherited member variables
    *##############################################################################################*/
 
-  std::vector<size_t *> shared_fields_;
+  size_t shared_num_;
 
-  std::vector<size_t> private_fields_;
+  size_t private_num_;
+
+  size_t *shared_fields_;
+
+  size_t private_fields_[kFieldNum];
 
  public:
   /*################################################################################################
@@ -37,16 +42,20 @@ class Worker
    *##############################################################################################*/
 
   Worker(  //
+      const size_t shared_field_num,
       const size_t private_field_num,
-      const std::vector<size_t *> shared_fields,
+      size_t *shared_fields,
       const size_t read_ratio,
       const size_t operation_counts)
-      : read_ratio_{read_ratio}, operation_counts_{operation_counts}
+      : read_ratio_{read_ratio},
+        operation_counts_{operation_counts},
+        shared_num_{shared_field_num},
+        private_num_{private_field_num}
   {
     exec_times_nano_.reserve(operation_counts_);
-    shared_fields_.insert(shared_fields_.begin(), shared_fields.begin(), shared_fields.end());
+    shared_fields_ = shared_fields;
     for (size_t count = 0; count < private_field_num; ++count) {
-      private_fields_.emplace_back(0);
+      private_fields_[count] = 0;
     }
   }
 
@@ -56,15 +65,23 @@ class Worker
    * Public utility functions
    *##############################################################################################*/
 
-  virtual size_t ReadMwCASField();
+  virtual size_t
+  ReadMwCASField()
+  {
+    return 0;
+  }
 
-  virtual size_t PerformMwCAS();
+  virtual size_t
+  PerformMwCAS()
+  {
+    return 0;
+  }
 
   void
   Run()
   {
     std::random_device seed_gen;
-    std::mt19937_64 rand_engine{seed_gen};
+    std::mt19937_64 rand_engine{seed_gen()};
 
     for (size_t count = 0; count < operation_counts_; ++count) {
       const auto rand_val = rand_engine() % 100;

@@ -10,3 +10,5 @@ enum OperationType
   kRead,
   kWrite
 };
+
+constexpr size_t kFieldNum = 16;

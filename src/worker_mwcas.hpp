@@ -27,11 +27,12 @@ class WorkerMwCAS : public Worker
 
   WorkerMwCAS(  //
       MwCASManager *mwcas_manager,
+      const size_t shared_field_num,
       const size_t private_field_num,
-      const std::vector<size_t *> shared_fields,
+      size_t *shared_fields,
       const size_t read_ratio,
       const size_t operation_counts)
-      : Worker{private_field_num, shared_fields, read_ratio, operation_counts},
+      : Worker{shared_field_num, private_field_num, shared_fields, read_ratio, operation_counts},
         manager_{mwcas_manager}
   {
   }
@@ -45,9 +46,9 @@ class WorkerMwCAS : public Worker
   size_t
   ReadMwCASField() override
   {
-    const auto start_time = std::chrono::system_clock::now();
-    manager_->ReadMwCASField<size_t>(shared_fields_[0]);
-    const auto end_time = std::chrono::system_clock::now();
+    const auto start_time = std::chrono::high_resolution_clock::now();
+    manager_->ReadMwCASField<size_t>(&shared_fields_[0]);
+    const auto end_time = std::chrono::high_resolution_clock::now();
 
     const auto exec_time = end_time - start_time;
     return std::chrono::duration_cast<std::chrono::nanoseconds>(exec_time).count();
@@ -58,23 +59,25 @@ class WorkerMwCAS : public Worker
   {
     std::vector<MwCASEntry> entries;
 
-    const auto start_time = std::chrono::system_clock::now();
+    const auto start_time = std::chrono::high_resolution_clock::now();
 
     do {
       entries = std::vector<MwCASEntry>{};
-      for (size_t index = 0; index < shared_fields_.size(); ++index) {
-        const auto old_val = manager_->ReadMwCASField<size_t>(shared_fields_[index]);
+      for (size_t index = 0; index < shared_num_; ++index) {
+        auto addr = shared_fields_ + index;
+        const auto old_val = manager_->ReadMwCASField<size_t>(addr);
         const auto new_val = old_val + 1;
-        entries.emplace_back(shared_fields_[index], old_val, new_val);
+        entries.emplace_back(addr, old_val, new_val);
       }
-      for (size_t index = 0; index < private_fields_.size(); ++index) {
-        const auto old_val = manager_->ReadMwCASField<size_t>(&private_fields_[index]);
+      for (size_t index = 0; index < private_num_; ++index) {
+        auto addr = private_fields_ + index;
+        const auto old_val = manager_->ReadMwCASField<size_t>(addr);
         const auto new_val = old_val + 1;
-        entries.emplace_back(&private_fields_[index], old_val, new_val);
+        entries.emplace_back(addr, old_val, new_val);
       }
-    } while (manager_->MwCAS(std::move(entries)));
+    } while (!manager_->MwCAS(std::move(entries)));
 
-    const auto end_time = std::chrono::system_clock::now();
+    const auto end_time = std::chrono::high_resolution_clock::now();
 
     const auto exec_time = end_time - start_time;
     return std::chrono::duration_cast<std::chrono::nanoseconds>(exec_time).count();
