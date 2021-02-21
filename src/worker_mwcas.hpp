@@ -57,19 +57,23 @@ class WorkerMwCAS : public Worker
   PerformMwCAS() override
   {
     std::vector<MwCASEntry> entries;
-    for (size_t index = 0; index < shared_fields_.size(); ++index) {
-      const auto old_val = manager_->ReadMwCASField<size_t>(shared_fields_[index]);
-      const auto new_val = old_val + 1;
-      entries.emplace_back(shared_fields_[index], old_val, new_val);
-    }
-    for (size_t index = 0; index < private_fields_.size(); ++index) {
-      const auto old_val = manager_->ReadMwCASField<size_t>(&private_fields_[index]);
-      const auto new_val = old_val + 1;
-      entries.emplace_back(&private_fields_[index], old_val, new_val);
-    }
 
     const auto start_time = std::chrono::system_clock::now();
-    manager_->MwCAS(std::move(entries));
+
+    do {
+      entries = std::vector<MwCASEntry>{};
+      for (size_t index = 0; index < shared_fields_.size(); ++index) {
+        const auto old_val = manager_->ReadMwCASField<size_t>(shared_fields_[index]);
+        const auto new_val = old_val + 1;
+        entries.emplace_back(shared_fields_[index], old_val, new_val);
+      }
+      for (size_t index = 0; index < private_fields_.size(); ++index) {
+        const auto old_val = manager_->ReadMwCASField<size_t>(&private_fields_[index]);
+        const auto new_val = old_val + 1;
+        entries.emplace_back(&private_fields_[index], old_val, new_val);
+      }
+    } while (manager_->MwCAS(std::move(entries)));
+
     const auto end_time = std::chrono::system_clock::now();
 
     const auto exec_time = end_time - start_time;
