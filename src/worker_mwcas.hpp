@@ -47,7 +47,7 @@ class WorkerMwCAS : public Worker
   ReadMwCASField() override
   {
     const auto start_time = std::chrono::high_resolution_clock::now();
-    manager_->ReadMwCASField<size_t>(&shared_fields_[0]);
+    manager_->ReadMwCASField<size_t>(shared_fields_);
     const auto end_time = std::chrono::high_resolution_clock::now();
 
     const auto exec_time = end_time - start_time;
@@ -59,7 +59,8 @@ class WorkerMwCAS : public Worker
   {
     std::vector<MwCASEntry> entries;
 
-    const auto start_time = std::chrono::high_resolution_clock::now();
+    std::chrono::_V2::system_clock::time_point start_time, end_time;
+    start_time = std::chrono::high_resolution_clock::now();
 
     do {
       entries = std::vector<MwCASEntry>{};
@@ -77,8 +78,7 @@ class WorkerMwCAS : public Worker
       }
     } while (!manager_->MwCAS(std::move(entries)));
 
-    const auto end_time = std::chrono::high_resolution_clock::now();
-
+    end_time = std::chrono::high_resolution_clock::now();
     const auto exec_time = end_time - start_time;
     return std::chrono::duration_cast<std::chrono::nanoseconds>(exec_time).count();
   }

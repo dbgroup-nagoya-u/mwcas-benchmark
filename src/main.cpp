@@ -54,7 +54,7 @@ class MwCASBench
     }
 
     // create MwCAS manager
-    auto manager = dbgroup::atomic::mwcas::MwCASManager{100};
+    auto manager = dbgroup::atomic::mwcas::MwCASManager{1000};
 
     // lambda function to run benchmark in multi-threads
     auto f = [&](std::promise<std::vector<std::pair<OperationType, size_t>>> p) {

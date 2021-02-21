@@ -84,6 +84,8 @@ class Worker
     std::mt19937_64 rand_engine{seed_gen()};
 
     for (size_t count = 0; count < operation_counts_; ++count) {
+      std::this_thread::sleep_for(std::chrono::nanoseconds(100));
+
       const auto rand_val = rand_engine() % 100;
       if (rand_val < read_ratio_) {
         // perform a MwCAS read operation
