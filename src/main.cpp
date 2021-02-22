@@ -49,7 +49,7 @@ class MwCASBench
   void
   RunOurMwCAS(  //
       std::promise<std::vector<std::pair<OperationType, size_t>>> p,
-      dbgroup::atomic::mwcas::MwCASManager *manager,
+      dbgroup::atomic::MwCASManager *manager,
       size_t *shared_fields)
   {
     auto worker =
@@ -80,7 +80,7 @@ class MwCASBench
     }
 
     // create MwCAS managers
-    auto manager = dbgroup::atomic::mwcas::MwCASManager{1000};
+    auto manager = dbgroup::atomic::MwCASManager{1000};
     auto desc_pool = pmwcas::DescriptorPool{1024, 8};
 
     // run benchmark and get results

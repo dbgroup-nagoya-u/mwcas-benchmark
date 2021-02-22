@@ -12,8 +12,7 @@
 #include "mwcas/mwcas_manager.hpp"
 #include "worker.hpp"
 
-using dbgroup::atomic::mwcas::MwCASEntry;
-using dbgroup::atomic::mwcas::MwCASManager;
+using dbgroup::atomic::MwCASManager;
 
 class WorkerMwCAS : public Worker
 {
@@ -57,28 +56,27 @@ class WorkerMwCAS : public Worker
   size_t
   PerformMwCAS() override
   {
-    std::vector<MwCASEntry> entries;
-
     std::chrono::_V2::system_clock::time_point start_time, end_time;
-    start_time = std::chrono::high_resolution_clock::now();
+    dbgroup::atomic::mwcas::MwCASDescriptor *desc;
 
+    start_time = std::chrono::high_resolution_clock::now();
     do {
-      entries = std::vector<MwCASEntry>{};
+      desc = manager_->CreateMwCASDescriptor();
       for (size_t index = 0; index < shared_num_; ++index) {
         auto addr = shared_fields_ + index;
         const auto old_val = manager_->ReadMwCASField<size_t>(addr);
         const auto new_val = old_val + 1;
-        entries.emplace_back(addr, old_val, new_val);
+        desc->AddEntry(addr, old_val, new_val);
       }
       for (size_t index = 0; index < private_num_; ++index) {
         auto addr = private_fields_ + index;
         const auto old_val = manager_->ReadMwCASField<size_t>(addr);
         const auto new_val = old_val + 1;
-        entries.emplace_back(addr, old_val, new_val);
+        desc->AddEntry(addr, old_val, new_val);
       }
-    } while (!manager_->MwCAS(std::move(entries)));
-
+    } while (!manager_->MwCAS(desc));
     end_time = std::chrono::high_resolution_clock::now();
+
     const auto exec_time = end_time - start_time;
     return std::chrono::duration_cast<std::chrono::nanoseconds>(exec_time).count();
   }
