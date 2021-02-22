@@ -29,6 +29,7 @@
     "DBUILD",
     "DCMAKE",
     "GLOG",
+    "PMWCAS",
     "Wextra",
     "alignas",
     "ctest",

@@ -9,12 +9,13 @@
 #include "mwcas/mwcas_manager.hpp"
 #include "worker.hpp"
 #include "worker_mwcas.hpp"
+#include "worker_pmwcas.hpp"
 
 // set command line options
 DEFINE_int64(read_ratio, 0, "The ratio of MwCAS read operations");
 DEFINE_int64(num_exec, 10000, "The number of executing MwCAS operations");
-DEFINE_int64(num_thread, 8, "The number of executing threads");
-DEFINE_int64(num_shared, 2, "The number of shared target fields of MwCAS");
+DEFINE_int64(num_thread, 1, "The number of executing threads");
+DEFINE_int64(num_shared, 1, "The number of shared target fields of MwCAS");
 DEFINE_int64(num_private, 0, "The number of private target fields of MwCAS");
 DEFINE_bool(test, false, "test");
 
@@ -55,11 +56,15 @@ class MwCASBench
 
     // create MwCAS manager
     auto manager = dbgroup::atomic::mwcas::MwCASManager{1000};
+    auto desc_pool = pmwcas::DescriptorPool{1024, 8};
 
     // lambda function to run benchmark in multi-threads
     auto f = [&](std::promise<std::vector<std::pair<OperationType, size_t>>> p) {
-      auto worker =
-          WorkerMwCAS{&manager, num_shared_, num_private_, shared_fields, read_ratio_, num_exec_};
+      // auto worker =
+      //     WorkerMwCAS{&manager, num_shared_, num_private_, shared_fields, read_ratio_,
+      //     num_exec_};
+      auto worker = WorkerPMwCAS{&desc_pool,    num_shared_, num_private_,
+                                 shared_fields, read_ratio_, num_exec_};
       worker.Run();
       p.set_value(worker.GetResults());
     };
@@ -87,7 +92,7 @@ class MwCASBench
       avg /= vec.size();
     }
 
-    LOG(INFO) << "avg_latency: " << avg;
+    LOG(INFO) << "avg_latency: " << avg << std::endl;
   }
 };
 
@@ -100,10 +105,10 @@ main(int argc, char *argv[])
   // parse command line options
   gflags::ParseCommandLineFlags(&argc, &argv, false);
 
-  LOG(INFO) << "=== Start MwCAS Benchmark ===";
+  LOG(INFO) << "=== Start MwCAS Benchmark ===" << std::endl;
   auto bench = MwCASBench{};
   bench.RunMwCASBench();
-  LOG(INFO) << "==== End MwCAS Benchmark ====";
+  LOG(INFO) << "==== End MwCAS Benchmark ====" << std::endl;
 
   return 0;
 }

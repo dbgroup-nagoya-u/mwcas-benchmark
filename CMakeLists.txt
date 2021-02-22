@@ -15,9 +15,13 @@ project(cpp_template
 # define source directories
 set(PROJECT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(MWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
+set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/pmwcas")
 
 # add MwCAS as a benchmark target
 add_subdirectory("${MWCAS_SOURCE_DIR}")
+
+# add PMwCAS as a benchmark target
+add_subdirectory("${PMWCAS_SOURCE_DIR}")
 
 # use glog as a logger
 find_package(glog)
@@ -37,13 +41,20 @@ target_compile_options(cpp_template PRIVATE
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
 )
+target_include_directories(cpp_template PRIVATE
+  "${PMWCAS_SOURCE_DIR}/"
+  "${PMWCAS_SOURCE_DIR}/src"
+  "${PMWCAS_SOURCE_DIR}/include"
+)
 target_link_libraries(cpp_template PRIVATE
   mwcas
+  pmwcas_static
   glog
   gflags
 )
 add_dependencies(cpp_template
   mwcas
+  pmwcas_static
 )
 
 # build unit tests if required
