@@ -1,4 +1,7 @@
-# define function to add unit tests in the same format
+# use GoogleTest for unit tests
+find_package(GTest)
+
+  # define function to add unit tests in the same format
 function(ADD_PROJECT_TEST PROJECT_TEST_TARGET)
   add_executable(${PROJECT_TEST_TARGET}
     "${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_TEST_TARGET}.cpp"
@@ -12,13 +15,9 @@ function(ADD_PROJECT_TEST PROJECT_TEST_TARGET)
     $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
   )
   target_link_libraries(${PROJECT_TEST_TARGET} PRIVATE
-    glog::glog
+    glog
     gflags
-    gtest_main
-  )
-  add_dependencies(${PROJECT_TEST_TARGET}
-    glog::glog
-    gtest_main
+    GTest::gtest_main
   )
   add_test(NAME ${PROJECT_TEST_TARGET} COMMAND $<TARGET_FILE:${PROJECT_TEST_TARGET}>)
 endfunction()

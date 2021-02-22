@@ -7,7 +7,7 @@
 ### Prerequisites
 
 ```bash
-sudo apt update && sudo apt install -y build-essential cmake libgflags-dev
+sudo apt update && sudo apt install -y build-essential cmake libgflags-dev libgoogle-glog-dev googletest
 ```
 
 ### Build Options

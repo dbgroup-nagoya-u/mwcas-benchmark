@@ -15,15 +15,15 @@ project(cpp_template
 # define source directories
 set(PROJECT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(MWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
-set(GLOG_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/glog")
-set(GOOGLETEST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/googletest")
 
 # add MwCAS as a benchmark target
 add_subdirectory("${MWCAS_SOURCE_DIR}")
 
-# use glog as a logger (this also includes gflags)
-set (BUILD_TESTING OFF CACHE BOOL "" FORCE)
-add_subdirectory("${GLOG_SOURCE_DIR}")
+# use glog as a logger
+find_package(glog)
+
+# use gflags to manage command line arguments
+find_package(gflags)
 
 # build executable
 add_executable(cpp_template
@@ -39,12 +39,11 @@ target_compile_options(cpp_template PRIVATE
 )
 target_link_libraries(cpp_template PRIVATE
   mwcas
-  glog::glog
+  glog
   gflags
 )
 add_dependencies(cpp_template
   mwcas
-  glog::glog
 )
 
 # build unit tests if required
@@ -52,8 +51,6 @@ option(BUILD_TESTS, "Build unit tests" OFF)
 if(${BUILD_TESTS})
   # enable CTest
   enable_testing()
-  # use GoogleTest for unit tests
-  add_subdirectory("${GOOGLETEST_SOURCE_DIR}")
   # include unit tests
   add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/test")
 endif()
