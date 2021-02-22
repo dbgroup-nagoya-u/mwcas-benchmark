@@ -11,4 +11,10 @@ enum OperationType
   kWrite
 };
 
+enum BenchTarget
+{
+  kOurs,
+  kMicrosoft
+};
+
 constexpr size_t kFieldNum = 16;

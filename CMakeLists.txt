@@ -15,15 +15,19 @@ project(cpp_template
 # define source directories
 set(PROJECT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(MWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
-set(GLOG_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/glog")
-set(GOOGLETEST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/googletest")
+set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/pmwcas")
 
 # add MwCAS as a benchmark target
 add_subdirectory("${MWCAS_SOURCE_DIR}")
 
-# use glog as a logger (this also includes gflags)
-set (BUILD_TESTING OFF CACHE BOOL "" FORCE)
-add_subdirectory("${GLOG_SOURCE_DIR}")
+# add PMwCAS as a benchmark target
+add_subdirectory("${PMWCAS_SOURCE_DIR}")
+
+# use glog as a logger
+find_package(glog)
+
+# use gflags to manage command line arguments
+find_package(gflags)
 
 # build executable
 add_executable(cpp_template
@@ -37,14 +41,20 @@ target_compile_options(cpp_template PRIVATE
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
 )
+target_include_directories(cpp_template PRIVATE
+  "${PMWCAS_SOURCE_DIR}/"
+  "${PMWCAS_SOURCE_DIR}/src"
+  "${PMWCAS_SOURCE_DIR}/include"
+)
 target_link_libraries(cpp_template PRIVATE
   mwcas
-  glog::glog
+  pmwcas_static
+  glog
   gflags
 )
 add_dependencies(cpp_template
   mwcas
-  glog::glog
+  pmwcas_static
 )
 
 # build unit tests if required
@@ -52,8 +62,6 @@ option(BUILD_TESTS, "Build unit tests" OFF)
 if(${BUILD_TESTS})
   # enable CTest
   enable_testing()
-  # use GoogleTest for unit tests
-  add_subdirectory("${GOOGLETEST_SOURCE_DIR}")
   # include unit tests
   add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/test")
 endif()

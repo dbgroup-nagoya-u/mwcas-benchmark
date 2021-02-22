@@ -9,14 +9,16 @@
 #include "mwcas/mwcas_manager.hpp"
 #include "worker.hpp"
 #include "worker_mwcas.hpp"
+#include "worker_pmwcas.hpp"
 
 // set command line options
 DEFINE_int64(read_ratio, 0, "The ratio of MwCAS read operations");
 DEFINE_int64(num_exec, 10000, "The number of executing MwCAS operations");
-DEFINE_int64(num_thread, 8, "The number of executing threads");
-DEFINE_int64(num_shared, 2, "The number of shared target fields of MwCAS");
+DEFINE_int64(num_thread, 1, "The number of executing threads");
+DEFINE_int64(num_shared, 1, "The number of shared target fields of MwCAS");
 DEFINE_int64(num_private, 0, "The number of private target fields of MwCAS");
-DEFINE_bool(test, false, "test");
+DEFINE_bool(ours, true, "Use MwCAS library (dbgroup) as a benchmark target");
+DEFINE_bool(microsoft, false, "Use PMwCAS library (Microsoft) as a benchmark target");
 
 class MwCASBench
 {
@@ -45,7 +47,31 @@ class MwCASBench
   ~MwCASBench() = default;
 
   void
-  RunMwCASBench()
+  RunOurMwCAS(  //
+      std::promise<std::vector<std::pair<OperationType, size_t>>> p,
+      dbgroup::atomic::mwcas::MwCASManager *manager,
+      size_t *shared_fields)
+  {
+    auto worker =
+        WorkerMwCAS{manager, num_shared_, num_private_, shared_fields, read_ratio_, num_exec_};
+    worker.Run();
+    p.set_value(worker.GetResults());
+  }
+
+  void
+  RunMicrosoftPMwCAS(  //
+      std::promise<std::vector<std::pair<OperationType, size_t>>> p,
+      pmwcas::DescriptorPool *desc_pool,
+      size_t *shared_fields)
+  {
+    auto worker =
+        WorkerPMwCAS{desc_pool, num_shared_, num_private_, shared_fields, read_ratio_, num_exec_};
+    worker.Run();
+    p.set_value(worker.GetResults());
+  }
+
+  void
+  RunMwCASBench(const BenchTarget target)
   {
     // create shared target fields
     size_t shared_fields[kFieldNum];
@@ -53,31 +79,31 @@ class MwCASBench
       shared_fields[index] = 0;
     }
 
-    // create MwCAS manager
+    // create MwCAS managers
     auto manager = dbgroup::atomic::mwcas::MwCASManager{1000};
-
-    // lambda function to run benchmark in multi-threads
-    auto f = [&](std::promise<std::vector<std::pair<OperationType, size_t>>> p) {
-      auto worker =
-          WorkerMwCAS{&manager, num_shared_, num_private_, shared_fields, read_ratio_, num_exec_};
-      worker.Run();
-      p.set_value(worker.GetResults());
-    };
+    auto desc_pool = pmwcas::DescriptorPool{1024, 8};
 
     // run benchmark and get results
     std::vector<std::future<std::vector<std::pair<OperationType, size_t>>>> futures;
     for (size_t index = 0; index < num_thread_; ++index) {
       std::promise<std::vector<std::pair<OperationType, size_t>>> p;
       futures.emplace_back(p.get_future());
-      auto t = std::thread{f, std::move(p)};
+      std::thread t;
+      switch (target) {
+        case kOurs:
+          t = std::thread{&MwCASBench::RunOurMwCAS, this, std::move(p), &manager, shared_fields};
+          break;
+        case kMicrosoft:
+          t = std::thread{&MwCASBench::RunMicrosoftPMwCAS, this, std::move(p), &desc_pool,
+                          shared_fields};
+          break;
+      }
       t.detach();
     }
     std::vector<std::vector<std::pair<OperationType, size_t>>> results;
     for (size_t index = 0; index < num_thread_; ++index) {
       results.emplace_back(futures[index].get());
     }
-
-    LOG(INFO) << "finish MwCAS benchmark.";
 
     size_t avg = 0;
     for (auto &&vec : results) {
@@ -87,7 +113,7 @@ class MwCASBench
       avg /= vec.size();
     }
 
-    LOG(INFO) << "avg_latency: " << avg;
+    LOG(INFO) << "Average latency: " << avg << std::endl;
   }
 };
 
@@ -100,10 +126,19 @@ main(int argc, char *argv[])
   // parse command line options
   gflags::ParseCommandLineFlags(&argc, &argv, false);
 
-  LOG(INFO) << "=== Start MwCAS Benchmark ===";
+  LOG(INFO) << "=== Start MwCAS Benchmark ===" << std::endl;
   auto bench = MwCASBench{};
-  bench.RunMwCASBench();
-  LOG(INFO) << "==== End MwCAS Benchmark ====";
+  if (FLAGS_ours) {
+    LOG(INFO) << "** Run our MwCAS..." << std::endl;
+    bench.RunMwCASBench(BenchTarget::kOurs);
+    LOG(INFO) << "** Finish." << std::endl;
+  }
+  if (FLAGS_microsoft) {
+    LOG(INFO) << "** Run Microsoft's PMwCAS..." << std::endl;
+    bench.RunMwCASBench(BenchTarget::kMicrosoft);
+    LOG(INFO) << "** Finish." << std::endl;
+  }
+  LOG(INFO) << "==== End MwCAS Benchmark ====" << std::endl;
 
   return 0;
 }
