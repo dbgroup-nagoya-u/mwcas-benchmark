@@ -6,3 +6,7 @@
 	path = external/mwcas-with-gc
 	url = git@github.com:dbgroup-nagoya-u/mwcas.git
 	branch = with-gc
+[submodule "external/pmwcas-microsoft"]
+	path = external/pmwcas-microsoft
+	url = https://github.com/microsoft/pmwcas.git
+	branch = master
