@@ -7,7 +7,10 @@
       "cppStandard": "gnu++17",
       "intelliSenseMode": "linux-gcc-x64",
       "includePath": [
-        "${workspaceFolder}/external/mwcas/include"
+        "${workspaceFolder}/external/mwcas/include",
+        "${workspaceFolder}/external/pmwcas-microsoft",
+        "${workspaceFolder}/external/pmwcas-microsoft/src",
+        "${workspaceFolder}/external/pmwcas-microsoft/include"
       ],
       "configurationProvider": "ms-vscode.cmake-tools"
     }

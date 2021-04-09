@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-enum OperationType
+enum Operation
 {
   kRead,
   kWrite
@@ -14,7 +14,8 @@ enum OperationType
 enum BenchTarget
 {
   kOurs,
-  kMicrosoft
+  kMicrosoft,
+  kSingleCAS
 };
 
 constexpr size_t kFieldNum = 16;
