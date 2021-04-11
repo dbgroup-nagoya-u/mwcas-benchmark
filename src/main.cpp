@@ -16,11 +16,12 @@
 #include "worker_pmwcas.hpp"
 
 // set command line options
-DEFINE_int64(read_ratio, 0, "The ratio of MwCAS read operations");
-DEFINE_int64(num_exec, 10000, "The number of MwCAS operations executed in each thread");
-DEFINE_int64(num_thread, 1, "The number of execution threads");
-DEFINE_int64(num_shared, 10000, "The number of total target fields");
-DEFINE_int64(num_target, 2, "The number of target fields for each MwCAS");
+DEFINE_uint64(read_ratio, 0, "The ratio of MwCAS read operations");
+DEFINE_uint64(num_exec, 10000, "The number of MwCAS operations executed in each thread");
+DEFINE_uint64(num_loop, 1, "The number of loops to measure performance");
+DEFINE_uint64(num_thread, 1, "The number of execution threads");
+DEFINE_uint64(num_shared, 10000, "The number of total target fields");
+DEFINE_uint64(num_target, 2, "The number of target fields for each MwCAS");
 DEFINE_bool(ours, true, "Use MwCAS library (DB Group @ Nagoya Univ.) as a benchmark target");
 DEFINE_bool(microsoft, false, "Use PMwCAS library (Microsoft) as a benchmark target");
 DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
@@ -77,19 +78,22 @@ class MwCASBench
    *##############################################################################################*/
 
   /// a ratio of read operations
-  size_t read_ratio_;
+  const size_t read_ratio_;
 
   /// the number of MwCAS operations executed in each thread
-  size_t num_exec_;
+  const size_t num_exec_;
+
+  /// the number of loops to measure performance
+  const size_t num_loop_;
 
   /// the number of execution threads
-  size_t num_thread_;
+  const size_t num_thread_;
 
   /// the number of total target fields
-  size_t num_shared_;
+  const size_t num_shared_;
 
   /// the number of target fields for each MwCAS
-  size_t num_target_;
+  const size_t num_target_;
 
   /// target fields of MwCAS
   size_t *shared_fields_;
@@ -105,6 +109,7 @@ class MwCASBench
   MwCASBench()
       : read_ratio_{FLAGS_read_ratio},
         num_exec_{FLAGS_num_exec},
+        num_loop_{FLAGS_num_loop},
         num_thread_{FLAGS_num_thread},
         num_shared_{FLAGS_num_shared},
         num_target_{FLAGS_num_target}
@@ -139,14 +144,14 @@ class MwCASBench
   {
     switch (target) {
       case kOurs:
-        return new WorkerMwCAS{shared_fields_, num_shared_, num_target_,
-                               read_ratio_,    num_exec_,   random_seed};
+        return new WorkerMwCAS{shared_fields_, num_shared_, num_target_, read_ratio_,
+                               num_exec_,      num_loop_,   random_seed};
       case kMicrosoft:
         return new WorkerPMwCAS{*desc_pool_, shared_fields_, num_shared_, num_target_,
-                                read_ratio_, num_exec_,      random_seed};
+                                read_ratio_, num_exec_,      num_loop_,   random_seed};
       case kSingleCAS:
-        return new WorkerSingleCAS{shared_fields_, num_shared_, num_target_,
-                                   read_ratio_,    num_exec_,   random_seed};
+        return new WorkerSingleCAS{shared_fields_, num_shared_, num_target_, read_ratio_,
+                                   num_exec_,      num_loop_,   random_seed};
       default:
         return nullptr;
     }
@@ -229,7 +234,8 @@ class MwCASBench
     // Log("99%: " << sorted[num_exec_ * num_thread_ * 0.99]);
     // Log("MAX: " << sorted.back());
 
-    double throughput = (static_cast<double>(num_exec_) * num_thread_) / (avg_nano_time / 1E3);
+    double throughput =
+        static_cast<double>(num_exec_ * num_loop_ * num_thread_) / (avg_nano_time / 1E3);
 
     LogThroughput(throughput);
   }

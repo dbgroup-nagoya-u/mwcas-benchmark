@@ -22,6 +22,8 @@ class Worker
 
   size_t operation_counts_;
 
+  size_t loop_num_;
+
   size_t random_seed_;
 
   std::vector<Operation> operation_queue_;
@@ -48,26 +50,17 @@ class Worker
    * Public constructors/destructors
    *##############################################################################################*/
 
-  Worker()
-      : read_ratio_{0},
-        operation_counts_{100},
-        random_seed_{0},
-        exec_time_nano_{0},
-        shared_field_num_{0},
-        shared_fields_{nullptr},
-        target_field_num_{0}
-  {
-  }
-
   Worker(  //
       size_t *shared_fields,
       const size_t shared_field_num,
       const size_t target_field_num,
       const size_t read_ratio,
       const size_t operation_counts,
+      const size_t loop_num,
       const size_t random_seed = 0)
       : read_ratio_{read_ratio},
         operation_counts_{operation_counts},
+        loop_num_{loop_num},
         random_seed_{random_seed},
         exec_time_nano_{0},
         shared_field_num_{shared_field_num},
@@ -93,7 +86,7 @@ class Worker
     // initialize execution time
     exec_time_nano_ = 0;
     exec_times_nano_.clear();
-    exec_times_nano_.reserve(operation_counts_);
+    exec_times_nano_.reserve(operation_counts_ * loop_num_);
 
     // generate an operation-queue for benchmark
     operation_queue_.reserve(operation_counts_);
@@ -158,18 +151,21 @@ class Worker
     assert(target_fields_.size() == operation_counts_);
 
     const auto start_time = std::chrono::high_resolution_clock::now();
-    for (size_t i = 0; i < operation_counts_; ++i) {
-      switch (operation_queue_[i]) {
-        case kRead:
-          ReadMwCASField(target_fields_[i][0]);
-          break;
-        case kWrite:
-          PerformMwCAS(target_fields_[i]);
-          break;
-        default:
-          break;
+    for (size_t loop = 0; loop < loop_num_; ++loop) {
+      for (size_t i = 0; i < operation_counts_; ++i) {
+        switch (operation_queue_[i]) {
+          case kRead:
+            ReadMwCASField(target_fields_[i][0]);
+            break;
+          case kWrite:
+            PerformMwCAS(target_fields_[i]);
+            break;
+          default:
+            break;
+        }
       }
     }
+
     const auto end_time = std::chrono::high_resolution_clock::now();
     exec_time_nano_ =
         std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
