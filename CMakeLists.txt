@@ -14,17 +14,46 @@ project(cpp_template
 
 # define source directories
 set(PROJECT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
-set(MWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
-set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/pmwcas-microsoft")
 
-# add MwCAS as a benchmark target
+#--------------------------------------------------------------------------------------#
+# Configure MwCAS
+#--------------------------------------------------------------------------------------#
+
+set(MWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
 add_subdirectory("${MWCAS_SOURCE_DIR}")
 
-# add PMwCAS as a benchmark target
+#--------------------------------------------------------------------------------------#
+# Configure PMwCAS
+#--------------------------------------------------------------------------------------#
+configure_file(external/CMakeLists-pmwcas.txt.in pmwcas-download/CMakeLists.txt)
+execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+  RESULT_VARIABLE result
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pmwcas-download )
+if(result)
+  message(FATAL_ERROR "CMake step for pmwcas failed: ${result}")
+endif()
+execute_process(COMMAND ${CMAKE_COMMAND} --build .
+  RESULT_VARIABLE result
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pmwcas-download )
+if(result)
+  message(FATAL_ERROR "Build step for pmwcas failed: ${result}")
+endif()
+
+# build volatile PMwCAS
 set(PMEM_BACKEND "Volatile" CACHE STRING "" FORCE)
+
+# prevent building Google libraries
 set(GOOGLE_FRAMEWORK OFF CACHE BOOL "" FORCE)
+
+# prevent building unit tests
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(BUILD_APPS OFF CACHE BOOL "" FORCE)
-add_subdirectory("${PMWCAS_SOURCE_DIR}")
+
+# add PMwCAS directly to our build
+add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/pmwcas-src
+                 ${CMAKE_CURRENT_BINARY_DIR}/pmwcas-build
+                 EXCLUDE_FROM_ALL)
+set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/pmwcas-src")
 
 #--------------------------------------------------------------------------------------#
 # Configure gflags
@@ -43,10 +72,10 @@ if(result)
   message(FATAL_ERROR "Build step for gflags failed: ${result}")
 endif()
 
-# Prevent building unit tests
+# prevent building unit tests
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 
-# Add gflags directly to our build
+# add gflags directly to our build
 add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/gflags-src
                  ${CMAKE_CURRENT_BINARY_DIR}/gflags-build
                  EXCLUDE_FROM_ALL)
@@ -68,16 +97,16 @@ if(result)
   message(FATAL_ERROR "Build step for glog failed: ${result}")
 endif()
 
-# Prevent building gflags
+# prevent building gflags
 set(WITH_GFLAGS OFF CACHE BOOL "" FORCE)
 
-# Prevent building GoogleTest
+# prevent building GoogleTest
 set(WITH_GTEST OFF CACHE BOOL "" FORCE)
 
-# Prevent building unit tests
+# prevent building unit tests
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 
-# Add glog directly to our build
+# add glog directly to our build
 add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/glog-src
                  ${CMAKE_CURRENT_BINARY_DIR}/glog-build
                  EXCLUDE_FROM_ALL)
