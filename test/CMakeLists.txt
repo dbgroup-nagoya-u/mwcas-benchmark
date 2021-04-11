@@ -41,7 +41,6 @@ function(ADD_PROJECT_TEST PROJECT_TEST_TARGET)
     $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
   )
   target_link_libraries(${PROJECT_TEST_TARGET} PRIVATE
-    glog
     gflags
     gtest_main
   )

@@ -81,37 +81,6 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/gflags-src
                  EXCLUDE_FROM_ALL)
 
 #--------------------------------------------------------------------------------------#
-# Configure glog
-#--------------------------------------------------------------------------------------#
-configure_file(external/CMakeLists-glog.txt.in glog-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/glog-download )
-if(result)
-  message(FATAL_ERROR "CMake step for glog failed: ${result}")
-endif()
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/glog-download )
-if(result)
-  message(FATAL_ERROR "Build step for glog failed: ${result}")
-endif()
-
-# prevent building gflags
-set(WITH_GFLAGS OFF CACHE BOOL "" FORCE)
-
-# prevent building GoogleTest
-set(WITH_GTEST OFF CACHE BOOL "" FORCE)
-
-# prevent building unit tests
-set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-
-# add glog directly to our build
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/glog-src
-                 ${CMAKE_CURRENT_BINARY_DIR}/glog-build
-                 EXCLUDE_FROM_ALL)
-
-#--------------------------------------------------------------------------------------#
 # Build Benchmark
 #--------------------------------------------------------------------------------------#
 
@@ -135,7 +104,6 @@ target_include_directories(cpp_template PRIVATE
 target_link_libraries(cpp_template PRIVATE
   mwcas
   pmwcas_static
-  glog
   gflags
   rt
 )

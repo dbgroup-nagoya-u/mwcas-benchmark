@@ -2,7 +2,6 @@
 // Licensed under the MIT license.
 
 #include <gflags/gflags.h>
-#include <glog/logging.h>
 #include <pmwcas.h>
 
 #include <future>
@@ -162,30 +161,27 @@ class MwCASBench
 int
 main(int argc, char *argv[])
 {
-  // init glog with a program name
-  google::InitGoogleLogging(argv[0]);
-
   // parse command line options
   gflags::ParseCommandLineFlags(&argc, &argv, false);
 
-  LOG(INFO) << "=== Start MwCAS Benchmark ===" << std::endl;
+  std::cout << "=== Start MwCAS Benchmark ===" << std::endl;
   auto bench = MwCASBench{};
   if (FLAGS_ours) {
-    LOG(INFO) << "** Run our MwCAS..." << std::endl;
+    std::cout << "** Run our MwCAS..." << std::endl;
     bench.RunMwCASBench(BenchTarget::kOurs);
-    LOG(INFO) << "** Finish." << std::endl;
+    std::cout << "** Finish." << std::endl;
   }
   if (FLAGS_microsoft) {
-    LOG(INFO) << "** Run Microsoft's PMwCAS..." << std::endl;
+    std::cout << "** Run Microsoft's PMwCAS..." << std::endl;
     bench.RunMwCASBench(BenchTarget::kMicrosoft);
-    LOG(INFO) << "** Finish." << std::endl;
+    std::cout << "** Finish." << std::endl;
   }
   if (FLAGS_single) {
-    LOG(INFO) << "** Run Single CAS..." << std::endl;
+    std::cout << "** Run Single CAS..." << std::endl;
     bench.RunMwCASBench(BenchTarget::kSingleCAS);
-    LOG(INFO) << "** Finish." << std::endl;
+    std::cout << "** Finish." << std::endl;
   }
-  LOG(INFO) << "==== End MwCAS Benchmark ====" << std::endl;
+  std::cout << "==== End MwCAS Benchmark ====" << std::endl;
 
   return 0;
 }
