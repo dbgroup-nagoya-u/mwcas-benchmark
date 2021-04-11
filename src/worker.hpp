@@ -77,7 +77,7 @@ class Worker
     PrepareBench();
   }
 
-  ~Worker() = default;
+  virtual ~Worker() = default;
 
   /*################################################################################################
    * Public utility functions

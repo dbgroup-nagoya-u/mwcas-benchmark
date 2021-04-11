@@ -50,7 +50,8 @@ class MwCASBench
     num_target_ = FLAGS_num_target;
     pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
                         pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
-    desc_pool_ = new pmwcas::DescriptorPool{4096 * num_thread_, num_thread_};
+    desc_pool_ = new pmwcas::DescriptorPool{static_cast<uint32_t>(4096 * num_thread_),
+                                            static_cast<uint32_t>(num_thread_)};
 
     // create shared target fields
     shared_fields_ = new size_t[num_shared_];
