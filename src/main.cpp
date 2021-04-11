@@ -50,7 +50,7 @@ class MwCASBench
     num_target_ = FLAGS_num_target;
     pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
                         pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
-    desc_pool_ = new pmwcas::DescriptorPool{1024 * num_thread_, num_thread_};
+    desc_pool_ = new pmwcas::DescriptorPool{4096 * num_thread_, num_thread_};
 
     // create shared target fields
     shared_fields_ = new size_t[num_shared_];
@@ -152,9 +152,9 @@ class MwCASBench
     // std::cout << "99%: " << sorted[num_exec_ * num_thread_ * 0.99] << std::endl;
     // std::cout << "MAX: " << sorted.back() << std::endl;
 
-    double throughput = (static_cast<double>(num_exec_) * num_thread_) / (avg_nano_time / 1E6);
+    double throughput = (static_cast<double>(num_exec_) * num_thread_) / (avg_nano_time / 1E3);
 
-    std::cout << "Throughput [Ops/s]: " << throughput << std::endl;
+    std::cout << "Throughput [MOps/s]: " << throughput << std::endl;
   }
 };
 
