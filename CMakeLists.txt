@@ -15,12 +15,15 @@ project(cpp_template
 # define source directories
 set(PROJECT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(MWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
-set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/pmwcas")
+set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/pmwcas-microsoft")
 
 # add MwCAS as a benchmark target
 add_subdirectory("${MWCAS_SOURCE_DIR}")
 
 # add PMwCAS as a benchmark target
+set(PMEM_BACKEND "Volatile" CACHE STRING "" FORCE)
+set(GOOGLE_FRAMEWORK OFF CACHE BOOL "" FORCE)
+set(BUILD_APPS OFF CACHE BOOL "" FORCE)
 add_subdirectory("${PMWCAS_SOURCE_DIR}")
 
 # use glog as a logger
@@ -51,6 +54,7 @@ target_link_libraries(cpp_template PRIVATE
   pmwcas_static
   glog
   gflags
+  rt
 )
 add_dependencies(cpp_template
   mwcas

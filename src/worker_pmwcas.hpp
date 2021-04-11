@@ -15,7 +15,7 @@
 class WorkerPMwCAS : public Worker
 {
  private:
-  pmwcas::DescriptorPool* desc_pool_;
+  pmwcas::DescriptorPool& desc_pool_;
 
  public:
   /*################################################################################################
@@ -23,66 +23,48 @@ class WorkerPMwCAS : public Worker
    *##############################################################################################*/
 
   WorkerPMwCAS(  //
-      pmwcas::DescriptorPool* desc_pool,
-      const size_t shared_field_num,
-      const size_t private_field_num,
+      pmwcas::DescriptorPool& desc_pool,
       size_t* shared_fields,
+      const size_t shared_field_num,
+      const size_t target_field_num,
       const size_t read_ratio,
-      const size_t operation_counts)
-      : Worker{shared_field_num, private_field_num, shared_fields, read_ratio, operation_counts},
+      const size_t operation_counts,
+      const size_t random_seed = 0)
+      : Worker{shared_fields, shared_field_num, target_field_num,
+               read_ratio,    operation_counts, random_seed},
         desc_pool_{desc_pool}
   {
   }
 
-  ~WorkerPMwCAS() = default;
-
   /*################################################################################################
-   * Public utility functions
+   * Public override functions
    *##############################################################################################*/
 
-  size_t
-  ReadMwCASField() override
+  void
+  ReadMwCASField(const size_t index) override
   {
-    const auto start_time = std::chrono::high_resolution_clock::now();
-    auto epoch = desc_pool_->GetEpoch();
-    reinterpret_cast<pmwcas::MwcTargetField<size_t>*>(shared_fields_)->GetValue(epoch);
-    const auto end_time = std::chrono::high_resolution_clock::now();
-
-    const auto exec_time = end_time - start_time;
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(exec_time).count();
+    const auto addr = shared_fields_ + index;
+    auto epoch = desc_pool_.GetEpoch();
+    reinterpret_cast<pmwcas::MwcTargetField<size_t>*>(addr)->GetValue(epoch);
   }
 
-  size_t
-  PerformMwCAS() override
+  void
+  PerformMwCAS(const std::array<size_t, kMaxTargetNum>& target_fields) override
   {
-    // std::vector<MwCASEntry> entries;
-
-    std::chrono::_V2::system_clock::time_point start_time, end_time;
-    start_time = std::chrono::high_resolution_clock::now();
-
-    auto desc = desc_pool_->AllocateDescriptor();
-    auto epoch = desc_pool_->GetEpoch();
-    epoch->Protect();
-    do {
-      for (size_t index = 0; index < shared_num_; ++index) {
-        auto addr = shared_fields_ + index;
+    while (true) {
+      auto desc = desc_pool_.AllocateDescriptor();
+      auto epoch = desc_pool_.GetEpoch();
+      epoch->Protect();
+      for (size_t i = 0; i < target_field_num_; ++i) {
+        const auto addr = shared_fields_ + target_fields[i];
         const auto old_val =
             reinterpret_cast<pmwcas::MwcTargetField<size_t>*>(addr)->GetValueProtected();
         const auto new_val = old_val + 1;
         desc->AddEntry(addr, old_val, new_val);
       }
-      for (size_t index = 0; index < private_num_; ++index) {
-        auto addr = private_fields_ + index;
-        const auto old_val =
-            reinterpret_cast<pmwcas::MwcTargetField<size_t>*>(addr)->GetValueProtected();
-        const auto new_val = old_val + 1;
-        desc->AddEntry(addr, old_val, new_val);
-      }
-    } while (!desc->MwCAS());
-    epoch->Unprotect();
-
-    end_time = std::chrono::high_resolution_clock::now();
-    const auto exec_time = end_time - start_time;
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(exec_time).count();
+      auto success = desc->MwCAS();
+      epoch->Unprotect();
+      if (success) break;
+    }
   }
 };
