@@ -24,8 +24,28 @@ DEFINE_int64(num_target, 2, "The number of private target fields of MwCAS");
 DEFINE_bool(ours, true, "Use MwCAS library (dbgroup) as a benchmark target");
 DEFINE_bool(microsoft, false, "Use PMwCAS library (Microsoft) as a benchmark target");
 DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
+DEFINE_bool(csv, false, "Output benchmark results as CSV format");
 
 std::shared_mutex mtx;
+bool output_format_is_text = true;
+
+void
+Log(const char *message)
+{
+  if (output_format_is_text) {
+    std::cout << message << std::endl;
+  }
+}
+
+void
+LogThroughput(const double throughput)
+{
+  if (output_format_is_text) {
+    std::cout << "Throughput [MOps/s]: " << throughput << std::endl;
+  } else {
+    std::cout << throughput << std::endl;
+  }
+}
 
 class MwCASBench
 {
@@ -119,7 +139,7 @@ class MwCASBench
       }
     }
 
-    std::cout << "Run workers." << std::endl;
+    Log("Run workers...");
 
     // gather results
     std::vector<Worker *> results;
@@ -128,7 +148,7 @@ class MwCASBench
       results.emplace_back(future.get());
     }
 
-    std::cout << "Finish running." << std::endl;
+    Log("Finish running...");
 
     size_t avg_nano_time = 0;
     for (auto &&worker : results) {
@@ -145,16 +165,16 @@ class MwCASBench
     // }
     // std::sort(sorted.begin(), sorted.end());
 
-    // std::cout << "MIN: " << sorted.front() << std::endl;
-    // std::cout << "50%: " << sorted[num_exec_ * num_thread_ * 0.50] << std::endl;
-    // std::cout << "90%: " << sorted[num_exec_ * num_thread_ * 0.90] << std::endl;
-    // std::cout << "95%: " << sorted[num_exec_ * num_thread_ * 0.95] << std::endl;
-    // std::cout << "99%: " << sorted[num_exec_ * num_thread_ * 0.99] << std::endl;
-    // std::cout << "MAX: " << sorted.back() << std::endl;
+    // Log("MIN: " << sorted.front());
+    // Log("50%: " << sorted[num_exec_ * num_thread_ * 0.50]);
+    // Log("90%: " << sorted[num_exec_ * num_thread_ * 0.90]);
+    // Log("95%: " << sorted[num_exec_ * num_thread_ * 0.95]);
+    // Log("99%: " << sorted[num_exec_ * num_thread_ * 0.99]);
+    // Log("MAX: " << sorted.back());
 
     double throughput = (static_cast<double>(num_exec_) * num_thread_) / (avg_nano_time / 1E3);
 
-    std::cout << "Throughput [MOps/s]: " << throughput << std::endl;
+    LogThroughput(throughput);
   }
 };
 
@@ -163,25 +183,26 @@ main(int argc, char *argv[])
 {
   // parse command line options
   gflags::ParseCommandLineFlags(&argc, &argv, false);
+  output_format_is_text = !FLAGS_csv;
 
-  std::cout << "=== Start MwCAS Benchmark ===" << std::endl;
+  Log("=== Start MwCAS Benchmark ===");
   auto bench = MwCASBench{};
   if (FLAGS_ours) {
-    std::cout << "** Run our MwCAS..." << std::endl;
+    Log("** Run our MwCAS...");
     bench.RunMwCASBench(BenchTarget::kOurs);
-    std::cout << "** Finish." << std::endl;
+    Log("** Finish.");
   }
   if (FLAGS_microsoft) {
-    std::cout << "** Run Microsoft's PMwCAS..." << std::endl;
+    Log("** Run Microsoft's PMwCAS...");
     bench.RunMwCASBench(BenchTarget::kMicrosoft);
-    std::cout << "** Finish." << std::endl;
+    Log("** Finish.");
   }
   if (FLAGS_single) {
-    std::cout << "** Run Single CAS..." << std::endl;
+    Log("** Run Single CAS...");
     bench.RunMwCASBench(BenchTarget::kSingleCAS);
-    std::cout << "** Finish." << std::endl;
+    Log("** Finish.");
   }
-  std::cout << "==== End MwCAS Benchmark ====" << std::endl;
+  Log("==== End MwCAS Benchmark ====");
 
   return 0;
 }
