@@ -26,11 +26,65 @@ set(GOOGLE_FRAMEWORK OFF CACHE BOOL "" FORCE)
 set(BUILD_APPS OFF CACHE BOOL "" FORCE)
 add_subdirectory("${PMWCAS_SOURCE_DIR}")
 
-# use glog as a logger
-find_package(glog)
+#--------------------------------------------------------------------------------------#
+# Configure gflags
+#--------------------------------------------------------------------------------------#
+configure_file(external/CMakeLists-gflags.txt.in gflags-download/CMakeLists.txt)
+execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+  RESULT_VARIABLE result
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gflags-download )
+if(result)
+  message(FATAL_ERROR "CMake step for gflags failed: ${result}")
+endif()
+execute_process(COMMAND ${CMAKE_COMMAND} --build .
+  RESULT_VARIABLE result
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gflags-download )
+if(result)
+  message(FATAL_ERROR "Build step for gflags failed: ${result}")
+endif()
 
-# use gflags to manage command line arguments
-find_package(gflags)
+# Prevent building unit tests
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+
+# Add gflags directly to our build
+add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/gflags-src
+                 ${CMAKE_CURRENT_BINARY_DIR}/gflags-build
+                 EXCLUDE_FROM_ALL)
+
+#--------------------------------------------------------------------------------------#
+# Configure glog
+#--------------------------------------------------------------------------------------#
+configure_file(external/CMakeLists-glog.txt.in glog-download/CMakeLists.txt)
+execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+  RESULT_VARIABLE result
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/glog-download )
+if(result)
+  message(FATAL_ERROR "CMake step for glog failed: ${result}")
+endif()
+execute_process(COMMAND ${CMAKE_COMMAND} --build .
+  RESULT_VARIABLE result
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/glog-download )
+if(result)
+  message(FATAL_ERROR "Build step for glog failed: ${result}")
+endif()
+
+# Prevent building gflags
+set(WITH_GFLAGS OFF CACHE BOOL "" FORCE)
+
+# Prevent building GoogleTest
+set(WITH_GTEST OFF CACHE BOOL "" FORCE)
+
+# Prevent building unit tests
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+
+# Add glog directly to our build
+add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/glog-src
+                 ${CMAKE_CURRENT_BINARY_DIR}/glog-build
+                 EXCLUDE_FROM_ALL)
+
+#--------------------------------------------------------------------------------------#
+# Build Benchmark
+#--------------------------------------------------------------------------------------#
 
 # build executable
 add_executable(cpp_template
