@@ -31,7 +31,10 @@ DEFINE_bool(csv, false, "Output benchmark results as CSV format");
  *################################################################################################*/
 
 /// a mutex to trigger workers simultaneously
-std::shared_mutex mtx;
+std::shared_mutex trigger_worker;
+
+/// a mutex to wait until all workers have been created
+std::shared_mutex worker_created;
 
 /// a flag to control output format
 bool output_format_is_text = true;
@@ -155,10 +158,17 @@ class MwCASBench
       const BenchTarget target,
       const size_t random_seed)
   {
-    auto worker = CreateWorker(target, random_seed);
+    // prepare a worker
+    Worker *worker;
+    {
+      const auto lock = std::shared_lock<std::shared_mutex>(worker_created);
+      worker = CreateWorker(target, random_seed);
+      // unlock to notice worker has been created
+    }
 
     {
-      const auto lock = std::shared_lock<std::shared_mutex>(mtx);
+      // wait for all workers to be created
+      const auto lock = std::shared_lock<std::shared_mutex>(trigger_worker);
     }
     worker->MeasureThroughput();
 
@@ -170,8 +180,8 @@ class MwCASBench
   {
     std::vector<std::future<Worker *>> futures;
     {
-      // create lock to prevent
-      const auto lock = std::unique_lock<std::shared_mutex>(mtx);
+      // create lock to prevent workers from running
+      const auto trigger_lock = std::unique_lock<std::shared_mutex>(trigger_worker);
 
       // create threads
       std::mt19937_64 rand_engine{0};
@@ -181,6 +191,9 @@ class MwCASBench
         std::thread{&MwCASBench::RunWorker, this, std::move(p_result), target, rand_engine()}
             .detach();
       }
+
+      // wait for all workers to be created
+      const auto worker_lock = std::unique_lock<std::shared_mutex>(worker_created);
     }
 
     Log("Run workers...");
