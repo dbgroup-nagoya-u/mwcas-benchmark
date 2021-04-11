@@ -17,17 +17,28 @@
 
 // set command line options
 DEFINE_int64(read_ratio, 0, "The ratio of MwCAS read operations");
-DEFINE_int64(num_exec, 1000, "The number of executing MwCAS operations");
-DEFINE_int64(num_thread, 1, "The number of executing threads");
-DEFINE_int64(num_shared, 100, "The number of shared target fields of MwCAS");
-DEFINE_int64(num_target, 2, "The number of private target fields of MwCAS");
-DEFINE_bool(ours, true, "Use MwCAS library (dbgroup) as a benchmark target");
+DEFINE_int64(num_exec, 10000, "The number of MwCAS operations executed in each thread");
+DEFINE_int64(num_thread, 1, "The number of execution threads");
+DEFINE_int64(num_shared, 10000, "The number of total target fields");
+DEFINE_int64(num_target, 2, "The number of target fields for each MwCAS");
+DEFINE_bool(ours, true, "Use MwCAS library (DB Group @ Nagoya Univ.) as a benchmark target");
 DEFINE_bool(microsoft, false, "Use PMwCAS library (Microsoft) as a benchmark target");
 DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
 DEFINE_bool(csv, false, "Output benchmark results as CSV format");
 
+/*##################################################################################################
+ * Global variables
+ *################################################################################################*/
+
+/// a mutex to trigger workers simultaneously
 std::shared_mutex mtx;
+
+/// a flag to control output format
 bool output_format_is_text = true;
+
+/*##################################################################################################
+ * Global utility functions
+ *################################################################################################*/
 
 void
 Log(const char *message)
@@ -47,32 +58,61 @@ LogThroughput(const double throughput)
   }
 }
 
+/*##################################################################################################
+ * Utility Classes
+ *################################################################################################*/
+
+/**
+ * @brief A class to run MwCAS benchmark.
+ *
+ */
 class MwCASBench
 {
  private:
+  /*################################################################################################
+   * Internal member variables
+   *##############################################################################################*/
+
+  /// a ratio of read operations
   size_t read_ratio_;
+
+  /// the number of MwCAS operations executed in each thread
   size_t num_exec_;
+
+  /// the number of execution threads
   size_t num_thread_;
+
+  /// the number of total target fields
   size_t num_shared_;
+
+  /// the number of target fields for each MwCAS
   size_t num_target_;
+
+  /// target fields of MwCAS
   size_t *shared_fields_;
+
+  /// PMwCAS descriptor pool
   pmwcas::DescriptorPool *desc_pool_;
 
  public:
+  /*################################################################################################
+   * Public constructors/destructors
+   *##############################################################################################*/
+
   MwCASBench()
+      : read_ratio_{FLAGS_read_ratio},
+        num_exec_{FLAGS_num_exec},
+        num_thread_{FLAGS_num_thread},
+        num_shared_{FLAGS_num_shared},
+        num_target_{FLAGS_num_target}
   {
-    // set input parameters
-    read_ratio_ = FLAGS_read_ratio;
-    num_exec_ = FLAGS_num_exec;
-    num_thread_ = FLAGS_num_thread;
-    num_shared_ = FLAGS_num_shared;
-    num_target_ = FLAGS_num_target;
+    // prepare PMwCAS descriptor pool
     pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
                         pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
     desc_pool_ = new pmwcas::DescriptorPool{static_cast<uint32_t>(4096 * num_thread_),
                                             static_cast<uint32_t>(num_thread_)};
 
-    // create shared target fields
+    // prepare shared target fields
     shared_fields_ = new size_t[num_shared_];
     for (size_t index = 0; index < num_shared_; ++index) {
       shared_fields_[index] = 0;
@@ -84,6 +124,10 @@ class MwCASBench
     delete shared_fields_;
     delete desc_pool_;
   }
+
+  /*################################################################################################
+   * Public utility functions
+   *##############################################################################################*/
 
   Worker *
   CreateWorker(  //
@@ -177,6 +221,10 @@ class MwCASBench
     LogThroughput(throughput);
   }
 };
+
+/*##################################################################################################
+ * Main function
+ *################################################################################################*/
 
 int
 main(int argc, char *argv[])
