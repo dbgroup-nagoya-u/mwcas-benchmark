@@ -18,4 +18,4 @@ enum BenchTarget
   kSingleCAS
 };
 
-constexpr size_t kFieldNum = 16;
+constexpr size_t kMaxTargetNum = 8;

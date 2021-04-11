@@ -49,14 +49,14 @@ class WorkerPMwCAS : public Worker
   }
 
   void
-  PerformMwCAS(const std::vector<size_t>& target_fields) override
+  PerformMwCAS(const std::array<size_t, kMaxTargetNum>& target_fields) override
   {
     while (true) {
       auto desc = desc_pool_.AllocateDescriptor();
       auto epoch = desc_pool_.GetEpoch();
       epoch->Protect();
-      for (auto&& index : target_fields) {
-        const auto addr = shared_fields_ + index;
+      for (size_t i = 0; i < target_field_num_; ++i) {
+        const auto addr = shared_fields_ + target_fields[i];
         const auto old_val =
             reinterpret_cast<pmwcas::MwcTargetField<size_t>*>(addr)->GetValueProtected();
         const auto new_val = old_val + 1;

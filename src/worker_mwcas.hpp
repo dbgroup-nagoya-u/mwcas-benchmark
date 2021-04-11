@@ -43,12 +43,12 @@ class WorkerMwCAS : public Worker
   }
 
   void
-  PerformMwCAS(const std::vector<size_t>& target_fields) override
+  PerformMwCAS(const std::array<size_t, kMaxTargetNum>& target_fields) override
   {
     while (true) {
       dbgroup::atomic::mwcas::MwCASDescriptor desc;
-      for (auto&& index : target_fields) {
-        const auto addr = shared_fields_ + index;
+      for (size_t i = 0; i < target_field_num_; ++i) {
+        const auto addr = shared_fields_ + target_fields[i];
         const auto old_val = dbgroup::atomic::mwcas::ReadMwCASField<size_t>(addr);
         const auto new_val = old_val + 1;
         desc.AddMwCASTarget(addr, old_val, new_val);

@@ -23,8 +23,8 @@ DEFINE_int64(num_thread, 1, "The number of executing threads");
 DEFINE_int64(num_shared, 100, "The number of shared target fields of MwCAS");
 DEFINE_int64(num_target, 2, "The number of private target fields of MwCAS");
 DEFINE_bool(ours, true, "Use MwCAS library (dbgroup) as a benchmark target");
-DEFINE_bool(microsoft, true, "Use PMwCAS library (Microsoft) as a benchmark target");
-DEFINE_bool(single, true, "Use Single CAS as a benchmark target");
+DEFINE_bool(microsoft, false, "Use PMwCAS library (Microsoft) as a benchmark target");
+DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
 
 std::shared_mutex mtx;
 

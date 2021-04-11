@@ -24,19 +24,15 @@ class Worker
 
   size_t random_seed_;
 
-  bool seed_is_modified_;
-
   std::vector<Operation> operation_queue_;
 
-  std::vector<size_t> exec_times_nano_;
+  std::vector<std::array<size_t, kMaxTargetNum>> target_fields_;
 
   size_t exec_time_nano_;
 
+  std::vector<size_t> exec_times_nano_;
+
   size_t shared_field_num_;
-
-  size_t target_field_num_;
-
-  std::vector<std::vector<size_t>> target_fields_;
 
  protected:
   /*################################################################################################
@@ -44,6 +40,8 @@ class Worker
    *##############################################################################################*/
 
   size_t *shared_fields_;
+
+  size_t target_field_num_;
 
  public:
   /*################################################################################################
@@ -54,11 +52,10 @@ class Worker
       : read_ratio_{0},
         operation_counts_{100},
         random_seed_{0},
-        seed_is_modified_{true},
         exec_time_nano_{0},
         shared_field_num_{0},
-        target_field_num_{0},
-        shared_fields_{nullptr}
+        shared_fields_{nullptr},
+        target_field_num_{0}
   {
   }
 
@@ -72,11 +69,10 @@ class Worker
       : read_ratio_{read_ratio},
         operation_counts_{operation_counts},
         random_seed_{random_seed},
-        seed_is_modified_{true},
         exec_time_nano_{0},
         shared_field_num_{shared_field_num},
-        target_field_num_{target_field_num},
-        shared_fields_{shared_fields}
+        shared_fields_{shared_fields},
+        target_field_num_{target_field_num}
   {
     PrepareBench();
   }
@@ -89,7 +85,7 @@ class Worker
 
   virtual void ReadMwCASField(const size_t index) = 0;
 
-  virtual void PerformMwCAS(const std::vector<size_t> &target_fields) = 0;
+  virtual void PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_fields) = 0;
 
   void
   PrepareBench()
@@ -100,38 +96,32 @@ class Worker
     exec_times_nano_.reserve(operation_counts_);
 
     // generate an operation-queue for benchmark
-    if (seed_is_modified_) {
-      seed_is_modified_ = false;
+    operation_queue_.reserve(operation_counts_);
+    target_fields_.reserve(operation_counts_);
 
-      operation_queue_.clear();
-      operation_queue_.reserve(operation_counts_);
-      target_fields_.clear();
-      target_fields_.reserve(operation_counts_);
+    std::mt19937_64 rand_engine{random_seed_};
+    for (size_t i = 0; i < operation_counts_; ++i) {
+      // create an operation-queue
+      const auto ops = (rand_engine() % 100 < read_ratio_) ? Operation::kRead : Operation::kWrite;
+      operation_queue_.emplace_back(ops);
 
-      std::mt19937_64 rand_engine{random_seed_};
-      for (size_t i = 0; i < operation_counts_; ++i) {
-        // create an operation-queue
-        const auto ops = (rand_engine() % 100 < read_ratio_) ? Operation::kRead : Operation::kWrite;
-        operation_queue_.emplace_back(ops);
-
-        // select target fields for each operation
-        std::vector<size_t> target_field;
-        target_field.reserve(target_field_num_);
-        for (size_t j = 0; j < target_field_num_; ++j) {
-          const auto rand_val = rand_engine() % shared_field_num_;
-          if (std::find(target_field.begin(), target_field.end(), rand_val) != target_field.end()) {
-            --j;
-            continue;
-          }
-
-          target_field.emplace_back(rand_val);
-          if (operation_queue_[i] == Operation::kRead) {
-            break;
-          }
+      // select target fields for each operation
+      std::array<size_t, kMaxTargetNum> target_field;
+      for (size_t j = 0; j < target_field_num_; ++j) {
+        const auto rand_val = rand_engine() % shared_field_num_;
+        const auto current_end = target_field.begin() + j;
+        if (std::find(target_field.begin(), current_end, rand_val) != current_end) {
+          --j;
+          continue;
         }
-        std::sort(target_field.begin(), target_field.end());
-        target_fields_.emplace_back(std::move(target_field));
+
+        target_field[j] = rand_val;
+        if (operation_queue_[i] == Operation::kRead) {
+          break;
+        }
       }
+      std::sort(target_field.begin(), target_field.begin() + target_field_num_);
+      target_fields_.emplace_back(std::move(target_field));
     }
   }
 

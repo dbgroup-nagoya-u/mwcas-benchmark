@@ -43,7 +43,7 @@ class WorkerSingleCAS : public Worker
   }
 
   void
-  PerformMwCAS(const std::vector<size_t> &target_fields) override
+  PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_fields) override
   {
     const auto addr = shared_fields_ + target_fields.front();
     auto target = reinterpret_cast<std::atomic_size_t *>(addr);
