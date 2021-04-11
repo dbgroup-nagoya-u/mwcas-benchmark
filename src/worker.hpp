@@ -50,6 +50,18 @@ class Worker
    * Public constructors/destructors
    *##############################################################################################*/
 
+  Worker()
+      : read_ratio_{0},
+        operation_counts_{100},
+        random_seed_{0},
+        seed_is_modified_{true},
+        exec_time_nano_{0},
+        shared_field_num_{0},
+        target_field_num_{0},
+        shared_fields_{nullptr}
+  {
+  }
+
   Worker(  //
       size_t *shared_fields,
       const size_t shared_field_num,
@@ -75,15 +87,9 @@ class Worker
    * Public utility functions
    *##############################################################################################*/
 
-  virtual void
-  ReadMwCASField(const size_t index)
-  {
-  }
+  virtual void ReadMwCASField(const size_t index) = 0;
 
-  virtual void
-  PerformMwCAS(const std::vector<size_t> &target_fields)
-  {
-  }
+  virtual void PerformMwCAS(const std::vector<size_t> &target_fields) = 0;
 
   void
   PrepareBench()
@@ -112,7 +118,13 @@ class Worker
         std::vector<size_t> target_field;
         target_field.reserve(target_field_num_);
         for (size_t j = 0; j < target_field_num_; ++j) {
-          target_field.emplace_back(rand_engine() % shared_field_num_);
+          const auto rand_val = rand_engine() % shared_field_num_;
+          if (std::find(target_field.begin(), target_field.end(), rand_val) != target_field.end()) {
+            --j;
+            continue;
+          }
+
+          target_field.emplace_back(rand_val);
           if (operation_queue_[i] == Operation::kRead) {
             break;
           }

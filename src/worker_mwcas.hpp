@@ -16,6 +16,22 @@ class WorkerMwCAS : public Worker
 {
  public:
   /*################################################################################################
+   * Public constructors/destructors
+   *##############################################################################################*/
+
+  WorkerMwCAS(  //
+      size_t* shared_fields,
+      const size_t shared_field_num,
+      const size_t target_field_num,
+      const size_t read_ratio,
+      const size_t operation_counts,
+      const size_t random_seed = 0)
+      : Worker{shared_fields, shared_field_num, target_field_num,
+               read_ratio,    operation_counts, random_seed}
+  {
+  }
+
+  /*################################################################################################
    * Public override functions
    *##############################################################################################*/
 
@@ -27,11 +43,11 @@ class WorkerMwCAS : public Worker
   }
 
   void
-  PerformMwCAS(const std::vector<size_t> &target_fields) override
+  PerformMwCAS(const std::vector<size_t>& target_fields) override
   {
     while (true) {
       dbgroup::atomic::mwcas::MwCASDescriptor desc;
-      for (auto &&index : target_fields) {
+      for (auto&& index : target_fields) {
         const auto addr = shared_fields_ + index;
         const auto old_val = dbgroup::atomic::mwcas::ReadMwCASField<size_t>(addr);
         const auto new_val = old_val + 1;

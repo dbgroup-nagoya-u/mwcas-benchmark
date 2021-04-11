@@ -24,7 +24,8 @@
     "-readability/fn_size",
     "-whitespace/braces",
     "-build/c++11",
-    "-whitespace/newline"
+    "-whitespace/newline",
+    "-runtime/references"
   ],
   "cSpell.words": [
     "DBUILD",
@@ -112,6 +113,7 @@
     "any": "cpp",
     "cstring": "cpp",
     "future": "cpp",
-    "variant": "cpp"
+    "variant": "cpp",
+    "shared_mutex": "cpp"
   },
 }

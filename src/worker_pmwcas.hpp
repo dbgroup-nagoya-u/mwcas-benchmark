@@ -15,7 +15,7 @@
 class WorkerPMwCAS : public Worker
 {
  private:
-  pmwcas::DescriptorPool* desc_pool_;
+  pmwcas::DescriptorPool& desc_pool_;
 
  public:
   /*################################################################################################
@@ -23,7 +23,7 @@ class WorkerPMwCAS : public Worker
    *##############################################################################################*/
 
   WorkerPMwCAS(  //
-      pmwcas::DescriptorPool* desc_pool,
+      pmwcas::DescriptorPool& desc_pool,
       size_t* shared_fields,
       const size_t shared_field_num,
       const size_t target_field_num,
@@ -44,7 +44,7 @@ class WorkerPMwCAS : public Worker
   ReadMwCASField(const size_t index) override
   {
     const auto addr = shared_fields_ + index;
-    auto epoch = desc_pool_->GetEpoch();
+    auto epoch = desc_pool_.GetEpoch();
     reinterpret_cast<pmwcas::MwcTargetField<size_t>*>(addr)->GetValue(epoch);
   }
 
@@ -52,8 +52,8 @@ class WorkerPMwCAS : public Worker
   PerformMwCAS(const std::vector<size_t>& target_fields) override
   {
     while (true) {
-      auto desc = desc_pool_->AllocateDescriptor();
-      auto epoch = desc_pool_->GetEpoch();
+      auto desc = desc_pool_.AllocateDescriptor();
+      auto epoch = desc_pool_.GetEpoch();
       epoch->Protect();
       for (auto&& index : target_fields) {
         const auto addr = shared_fields_ + index;
