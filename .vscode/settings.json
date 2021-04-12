@@ -30,6 +30,7 @@
   "cSpell.words": [
     "DBUILD",
     "DCMAKE",
+    "DMWCAS",
     "GLOG",
     "PMEM",
     "PMWCAS",
@@ -39,6 +40,7 @@
     "gflags",
     "gtest",
     "libgflags",
+    "libnuma",
     "mwcas",
     "pthread"
   ],

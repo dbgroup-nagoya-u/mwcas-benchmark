@@ -15,6 +15,14 @@ project(cpp_template
 # define source directories
 set(PROJECT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+# set compile options
+set(
+  MWCAS_BENCH_MAX_FIELD_NUM
+  "8"
+  CACHE STRING
+  "The maximum number of target words of MwCAS."
+)
+
 #--------------------------------------------------------------------------------------#
 # Configure MwCAS
 #--------------------------------------------------------------------------------------#
@@ -96,6 +104,10 @@ target_compile_options(cpp_template PRIVATE
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
 )
+target_compile_definitions(
+  cpp_template PRIVATE
+  MWCAS_BENCH_MAX_FIELD_NUM=${MWCAS_BENCH_MAX_FIELD_NUM}
+)
 target_include_directories(cpp_template PRIVATE
   "${PMWCAS_SOURCE_DIR}/"
   "${PMWCAS_SOURCE_DIR}/src"
@@ -113,8 +125,8 @@ add_dependencies(cpp_template
 )
 
 # build unit tests if required
-option(BUILD_TESTS, "Build unit tests" OFF)
-if(${BUILD_TESTS})
+option(MWCAS_BENCH_BUILD_TESTS, "Build unit tests" OFF)
+if(${MWCAS_BENCH_BUILD_TESTS})
   # enable CTest
   enable_testing()
   # include unit tests
