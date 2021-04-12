@@ -36,6 +36,47 @@ class Worker
 
   size_t shared_field_num_;
 
+  /*################################################################################################
+   * Internal utility functions
+   *##############################################################################################*/
+
+  void
+  PrepareBench()
+  {
+    // initialize execution time
+    exec_time_nano_ = 0;
+    exec_times_nano_.reserve(operation_counts_ * loop_num_);
+
+    // generate an operation-queue for benchmark
+    operation_queue_.reserve(operation_counts_);
+    target_fields_.reserve(operation_counts_);
+
+    std::mt19937_64 rand_engine{random_seed_};
+    for (size_t i = 0; i < operation_counts_; ++i) {
+      // create an operation-queue
+      const auto ops = (rand_engine() % 100 < read_ratio_) ? Operation::kRead : Operation::kWrite;
+      operation_queue_.emplace_back(ops);
+
+      // select target fields for each operation
+      std::array<size_t, kMaxTargetNum> target_field;
+      for (size_t j = 0; j < target_field_num_; ++j) {
+        const auto rand_val = rand_engine() % shared_field_num_;
+        const auto current_end = target_field.begin() + j;
+        if (std::find(target_field.begin(), current_end, rand_val) != current_end) {
+          --j;
+          continue;
+        }
+
+        target_field[j] = rand_val;
+        if (operation_queue_[i] == Operation::kRead) {
+          break;
+        }
+      }
+      std::sort(target_field.begin(), target_field.begin() + target_field_num_);
+      target_fields_.emplace_back(std::move(target_field));
+    }
+  }
+
  protected:
   /*################################################################################################
    * Inherited member variables
@@ -81,66 +122,30 @@ class Worker
   virtual void PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_fields) = 0;
 
   void
-  PrepareBench()
-  {
-    // initialize execution time
-    exec_time_nano_ = 0;
-    exec_times_nano_.clear();
-    exec_times_nano_.reserve(operation_counts_ * loop_num_);
-
-    // generate an operation-queue for benchmark
-    operation_queue_.reserve(operation_counts_);
-    target_fields_.reserve(operation_counts_);
-
-    std::mt19937_64 rand_engine{random_seed_};
-    for (size_t i = 0; i < operation_counts_; ++i) {
-      // create an operation-queue
-      const auto ops = (rand_engine() % 100 < read_ratio_) ? Operation::kRead : Operation::kWrite;
-      operation_queue_.emplace_back(ops);
-
-      // select target fields for each operation
-      std::array<size_t, kMaxTargetNum> target_field;
-      for (size_t j = 0; j < target_field_num_; ++j) {
-        const auto rand_val = rand_engine() % shared_field_num_;
-        const auto current_end = target_field.begin() + j;
-        if (std::find(target_field.begin(), current_end, rand_val) != current_end) {
-          --j;
-          continue;
-        }
-
-        target_field[j] = rand_val;
-        if (operation_queue_[i] == Operation::kRead) {
-          break;
-        }
-      }
-      std::sort(target_field.begin(), target_field.begin() + target_field_num_);
-      target_fields_.emplace_back(std::move(target_field));
-    }
-  }
-
-  void
   MeasureLatency()
   {
     assert(operation_queue_.size() == operation_counts_);
     assert(target_fields_.size() == operation_counts_);
     assert(exec_times_nano_.empty());
 
-    for (size_t i = 0; i < operation_counts_; ++i) {
-      const auto start_time = std::chrono::high_resolution_clock::now();
-      switch (operation_queue_[i]) {
-        case kRead:
-          ReadMwCASField(target_fields_[i][0]);
-          break;
-        case kWrite:
-          PerformMwCAS(target_fields_[i]);
-          break;
-        default:
-          break;
+    for (size_t loop = 0; loop < loop_num_; ++loop) {
+      for (size_t i = 0; i < operation_counts_; ++i) {
+        const auto start_time = std::chrono::high_resolution_clock::now();
+        switch (operation_queue_[i]) {
+          case kRead:
+            ReadMwCASField(target_fields_[i][0]);
+            break;
+          case kWrite:
+            PerformMwCAS(target_fields_[i]);
+            break;
+          default:
+            break;
+        }
+        const auto end_time = std::chrono::high_resolution_clock::now();
+        const auto exec_time =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+        exec_times_nano_.emplace_back(exec_time);
       }
-      const auto end_time = std::chrono::high_resolution_clock::now();
-      const auto exec_time =
-          std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
-      exec_times_nano_.emplace_back(exec_time);
     }
   }
 
@@ -171,10 +176,16 @@ class Worker
         std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
   }
 
-  std::pair<const std::vector<Operation> &, const std::vector<size_t> &>
-  GetLatencies() const
+  void
+  SortExecutionTimes()
   {
-    return {operation_queue_, exec_times_nano_};
+    std::sort(exec_times_nano_.begin(), exec_times_nano_.end());
+  }
+
+  size_t
+  GetLatency(const size_t index) const
+  {
+    return exec_times_nano_[index];
   }
 
   size_t

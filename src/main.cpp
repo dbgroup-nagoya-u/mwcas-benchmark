@@ -32,10 +32,10 @@ DEFINE_bool(csv, false, "Output benchmark results as CSV format");
  *################################################################################################*/
 
 /// a mutex to trigger workers simultaneously
-std::shared_mutex trigger_worker;
+std::shared_mutex mutex_1st;
 
 /// a mutex to wait until all workers have been created
-std::shared_mutex worker_created;
+std::shared_mutex mutex_2nd;
 
 /// a flag to control output format
 bool output_format_is_text = true;
@@ -49,16 +49,6 @@ Log(const char *message)
 {
   if (output_format_is_text) {
     std::cout << message << std::endl;
-  }
-}
-
-void
-LogThroughput(const double throughput)
-{
-  if (output_format_is_text) {
-    std::cout << "Throughput [MOps/s]: " << throughput << std::endl;
-  } else {
-    std::cout << throughput << std::endl;
   }
 }
 
@@ -101,41 +91,48 @@ class MwCASBench
   /// PMwCAS descriptor pool
   pmwcas::DescriptorPool *desc_pool_;
 
- public:
   /*################################################################################################
-   * Public constructors/destructors
+   * Private utility functions
    *##############################################################################################*/
 
-  MwCASBench()
-      : read_ratio_{FLAGS_read_ratio},
-        num_exec_{FLAGS_num_exec},
-        num_loop_{FLAGS_num_loop},
-        num_thread_{FLAGS_num_thread},
-        num_shared_{FLAGS_num_shared},
-        num_target_{FLAGS_num_target}
+  void
+  LogThroughput(const double throughput) const
   {
-    // prepare PMwCAS descriptor pool
-    pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
-                        pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
-    desc_pool_ = new pmwcas::DescriptorPool{static_cast<uint32_t>(4096 * num_thread_),
-                                            static_cast<uint32_t>(num_thread_)};
+    if (output_format_is_text) {
+      std::cout << "Throughput [Ops/s]: " << throughput << std::endl;
+    } else {
+      std::cout << throughput;
+    }
+  }
 
-    // prepare shared target fields
-    shared_fields_ = new size_t[num_shared_];
+  void
+  LogLatency(  //
+      const size_t lat_0,
+      const size_t lat_90,
+      const size_t lat_95,
+      const size_t lat_99,
+      const size_t lat_100) const
+  {
+    if (output_format_is_text) {
+      std::cout << "  MIN: " << lat_0 << std::endl;
+      std::cout << "  90%: " << lat_90 << std::endl;
+      std::cout << "  95%: " << lat_95 << std::endl;
+      std::cout << "  99%: " << lat_99 << std::endl;
+      std::cout << "  MAX: " << lat_100 << std::endl;
+    } else {
+      std::cout << lat_0 << "," << lat_90 << "," << lat_95 << "," << lat_99 << "," << lat_100;
+    }
+  }
+
+  void
+  InitializeSharedFields()
+  {
+    assert(shared_fields_);
+
     for (size_t index = 0; index < num_shared_; ++index) {
       shared_fields_[index] = 0;
     }
   }
-
-  ~MwCASBench()
-  {
-    delete shared_fields_;
-    delete desc_pool_;
-  }
-
-  /*################################################################################################
-   * Public utility functions
-   *##############################################################################################*/
 
   Worker *
   CreateWorker(  //
@@ -159,49 +156,126 @@ class MwCASBench
 
   void
   RunWorker(  //
-      std::promise<Worker *> p_result,
+      std::promise<Worker *> p,
       const BenchTarget target,
       const size_t random_seed)
   {
     // prepare a worker
     Worker *worker;
     {
-      const auto lock = std::shared_lock<std::shared_mutex>(worker_created);
+      // create a lock to stop a main thread
+      const auto lock = std::shared_lock<std::shared_mutex>(mutex_2nd);
       worker = CreateWorker(target, random_seed);
-      // unlock to notice worker has been created
-    }
 
+      // unlock to notice that worker has been created
+    }
     {
-      // wait for all workers to be created
-      const auto lock = std::shared_lock<std::shared_mutex>(trigger_worker);
-    }
-    worker->MeasureThroughput();
+      // wait for benchmark to be ready
+      const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st);
+      worker->MeasureThroughput();
 
-    p_result.set_value(worker);
+      // unlock to notice that worker has measured thuroughput
+    }
+    {
+      // wait for benchmark to be ready
+      const auto guard = std::shared_lock<std::shared_mutex>(mutex_2nd);
+      worker->MeasureLatency();
+
+      // unlock to notice that worker has measured latency
+    }
+    {
+      // wait for benchmark to be ready
+      const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st);
+      worker->SortExecutionTimes();
+    }
+
+    p.set_value(worker);
   }
+
+ public:
+  /*################################################################################################
+   * Public constructors/destructors
+   *##############################################################################################*/
+
+  MwCASBench()
+      : read_ratio_{FLAGS_read_ratio},
+        num_exec_{FLAGS_num_exec},
+        num_loop_{FLAGS_num_loop},
+        num_thread_{FLAGS_num_thread},
+        num_shared_{FLAGS_num_shared},
+        num_target_{FLAGS_num_target}
+  {
+    // prepare PMwCAS descriptor pool
+    pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
+                        pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
+    desc_pool_ = new pmwcas::DescriptorPool{static_cast<uint32_t>(4096 * num_thread_),
+                                            static_cast<uint32_t>(num_thread_)};
+
+    // prepare shared target fields
+    shared_fields_ = new size_t[num_shared_];
+    InitializeSharedFields();
+  }
+
+  ~MwCASBench()
+  {
+    delete shared_fields_;
+    delete desc_pool_;
+  }
+
+  /*################################################################################################
+   * Public utility functions
+   *##############################################################################################*/
 
   void
   RunMwCASBench(const BenchTarget target)
   {
+    // prepare workers
     std::vector<std::future<Worker *>> futures;
     {
-      // create lock to prevent workers from running
-      const auto trigger_lock = std::unique_lock<std::shared_mutex>(trigger_worker);
+      // create a lock to stop workers from running
+      const auto lock = std::unique_lock<std::shared_mutex>(mutex_1st);
 
-      // create threads
+      // create workers in each thread
       std::mt19937_64 rand_engine{0};
       for (size_t index = 0; index < num_thread_; ++index) {
-        std::promise<Worker *> p_result;
-        futures.emplace_back(p_result.get_future());
-        std::thread{&MwCASBench::RunWorker, this, std::move(p_result), target, rand_engine()}
-            .detach();
+        std::promise<Worker *> p;
+        futures.emplace_back(p.get_future());
+        std::thread{&MwCASBench::RunWorker, this, std::move(p), target, rand_engine()}.detach();
       }
 
       // wait for all workers to be created
-      const auto worker_lock = std::unique_lock<std::shared_mutex>(worker_created);
+      const auto guard = std::unique_lock<std::shared_mutex>(mutex_2nd);
+
+      InitializeSharedFields();
+
+      // unlock to run workers
     }
 
-    Log("Run workers...");
+    Log("Run workers to measure throughput...");
+
+    {
+      // create a lock to stop workers from running
+      const auto lock = std::unique_lock<std::shared_mutex>(mutex_2nd);
+
+      // wait for all workers to finish measuring throughput
+      const auto guard = std::unique_lock<std::shared_mutex>(mutex_1st);
+
+      InitializeSharedFields();
+
+      // unlock to run workers
+    }
+
+    Log("Run workers to measure latency...");
+
+    {
+      // create a lock to stop workers from running
+      const auto lock = std::unique_lock<std::shared_mutex>(mutex_1st);
+
+      // wait for all workers to finish measuring latency
+      const auto guard = std::unique_lock<std::shared_mutex>(mutex_2nd);
+    }
+
+    Log("Finish running...");
 
     // gather results
     std::vector<Worker *> results;
@@ -210,34 +284,57 @@ class MwCASBench
       results.emplace_back(future.get());
     }
 
-    Log("Finish running...");
-
+    // compute throughput
+    const size_t total_exec_num = num_exec_ * num_loop_ * num_thread_;
     size_t avg_nano_time = 0;
     for (auto &&worker : results) {
       avg_nano_time += worker->GetTotalExecTime();
-      delete worker;
     }
     avg_nano_time /= num_thread_;
-
-    // std::vector<size_t> sorted;
-    // for (auto &&vec : results) {
-    //   for (auto &&[op, exec_time] : vec) {
-    //     sorted.emplace_back(exec_time);
-    //   }
-    // }
-    // std::sort(sorted.begin(), sorted.end());
-
-    // Log("MIN: " << sorted.front());
-    // Log("50%: " << sorted[num_exec_ * num_thread_ * 0.50]);
-    // Log("90%: " << sorted[num_exec_ * num_thread_ * 0.90]);
-    // Log("95%: " << sorted[num_exec_ * num_thread_ * 0.95]);
-    // Log("99%: " << sorted[num_exec_ * num_thread_ * 0.99]);
-    // Log("MAX: " << sorted.back());
-
-    double throughput =
-        static_cast<double>(num_exec_ * num_loop_ * num_thread_) / (avg_nano_time / 1E3);
+    const auto throughput = total_exec_num / (avg_nano_time / 1E9);
 
     LogThroughput(throughput);
+
+    // compute latency
+    size_t lat_0 = std::numeric_limits<size_t>::max(), lat_90, lat_95, lat_99, lat_100;
+    std::vector<size_t> indexes;
+    indexes.reserve(num_thread_);
+    for (size_t thread = 0; thread < num_thread_; ++thread) {
+      indexes.emplace_back(num_exec_ * num_loop_ - 1);
+      const auto exec_time = results[thread]->GetLatency(0);
+      if (exec_time < lat_0) {
+        lat_0 = exec_time;
+      }
+    }
+    for (size_t count = total_exec_num; count >= total_exec_num * 0.90; --count) {
+      int64_t target_thread = -1;
+      auto max_exec_time = std::numeric_limits<size_t>::min();
+      for (size_t thread = 0; thread < num_thread_; ++thread) {
+        const auto exec_time = results[thread]->GetLatency(indexes[thread]);
+        if (exec_time > max_exec_time) {
+          max_exec_time = exec_time;
+          target_thread = thread;
+        }
+      }
+      if (count == total_exec_num) {
+        lat_100 = max_exec_time;
+      } else if (count == static_cast<size_t>(total_exec_num * 0.99)) {
+        lat_99 = max_exec_time;
+      } else if (count == static_cast<size_t>(total_exec_num * 0.95)) {
+        lat_95 = max_exec_time;
+      } else if (count == static_cast<size_t>(total_exec_num * 0.90)) {
+        lat_90 = max_exec_time;
+      }
+
+      --indexes[target_thread];
+    }
+
+    Log("Percentiled Latencies [ns]:");
+    LogLatency(lat_0, lat_90, lat_95, lat_99, lat_100);
+
+    for (auto &&worker : results) {
+      delete worker;
+    }
   }
 };
 
