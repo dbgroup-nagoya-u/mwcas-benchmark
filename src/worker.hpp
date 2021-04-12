@@ -86,6 +86,14 @@ class Worker
 
   size_t target_field_num_;
 
+  /*################################################################################################
+   * Inherited utility functions
+   *##############################################################################################*/
+
+  virtual void ReadMwCASField(const size_t index) = 0;
+
+  virtual void PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_fields) = 0;
+
  public:
   /*################################################################################################
    * Public constructors/destructors
@@ -116,10 +124,6 @@ class Worker
   /*################################################################################################
    * Public utility functions
    *##############################################################################################*/
-
-  virtual void ReadMwCASField(const size_t index) = 0;
-
-  virtual void PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_fields) = 0;
 
   void
   MeasureLatency()

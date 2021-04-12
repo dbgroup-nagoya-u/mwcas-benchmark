@@ -17,28 +17,9 @@ class WorkerPMwCAS : public Worker
  private:
   pmwcas::DescriptorPool& desc_pool_;
 
- public:
+ protected:
   /*################################################################################################
-   * Public constructors/destructors
-   *##############################################################################################*/
-
-  WorkerPMwCAS(  //
-      pmwcas::DescriptorPool& desc_pool,
-      size_t* shared_fields,
-      const size_t shared_field_num,
-      const size_t target_field_num,
-      const size_t read_ratio,
-      const size_t operation_counts,
-      const size_t loop_num,
-      const size_t random_seed = 0)
-      : Worker{shared_fields,    shared_field_num, target_field_num, read_ratio,
-               operation_counts, loop_num,         random_seed},
-        desc_pool_{desc_pool}
-  {
-  }
-
-  /*################################################################################################
-   * Public override functions
+   * Inherited utility functions
    *##############################################################################################*/
 
   void
@@ -67,5 +48,25 @@ class WorkerPMwCAS : public Worker
       epoch->Unprotect();
       if (success) break;
     }
+  }
+
+ public:
+  /*################################################################################################
+   * Public constructors/destructors
+   *##############################################################################################*/
+
+  WorkerPMwCAS(  //
+      pmwcas::DescriptorPool& desc_pool,
+      size_t* shared_fields,
+      const size_t shared_field_num,
+      const size_t target_field_num,
+      const size_t read_ratio,
+      const size_t operation_counts,
+      const size_t loop_num,
+      const size_t random_seed = 0)
+      : Worker{shared_fields,    shared_field_num, target_field_num, read_ratio,
+               operation_counts, loop_num,         random_seed},
+        desc_pool_{desc_pool}
+  {
   }
 };
