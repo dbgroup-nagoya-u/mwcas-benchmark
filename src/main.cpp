@@ -15,13 +15,39 @@
 #include "worker_mwcas.hpp"
 #include "worker_pmwcas.hpp"
 
+static bool
+ValidatePositiveVal(const char *flagname, uint64_t value)
+{
+  if (value > 0) {
+    return true;
+  }
+  std::cout << "A value must be positive for " << flagname << std::endl;
+  return false;
+}
+
+static bool
+ValidateTargetNum([[maybe_unused]] const char *flagname, uint64_t value)
+{
+  if (value > 0 && value <= kMaxTargetNum) {
+    return true;
+  }
+  std::cout << "The number of MwCAS targets must be between [1, " << kMaxTargetNum << "]"
+            << std::endl;
+  return false;
+}
+
 // set command line options
-DEFINE_uint64(read_ratio, 0, "The ratio of MwCAS read operations");
+DEFINE_uint64(read_ratio, 0, "The ratio of MwCAS read operations [%]");
 DEFINE_uint64(num_exec, 10000, "The number of MwCAS operations executed in each thread");
+DEFINE_validator(num_exec, &ValidatePositiveVal);
 DEFINE_uint64(num_loop, 1, "The number of loops to measure performance");
+DEFINE_validator(num_loop, &ValidatePositiveVal);
 DEFINE_uint64(num_thread, 1, "The number of execution threads");
+DEFINE_validator(num_thread, &ValidatePositiveVal);
 DEFINE_uint64(num_shared, 10000, "The number of total target fields");
+DEFINE_validator(num_shared, &ValidatePositiveVal);
 DEFINE_uint64(num_target, 2, "The number of target fields for each MwCAS");
+DEFINE_validator(num_target, &ValidateTargetNum);
 DEFINE_bool(ours, true, "Use MwCAS library (DB Group @ Nagoya Univ.) as a benchmark target");
 DEFINE_bool(microsoft, false, "Use PMwCAS library (Microsoft) as a benchmark target");
 DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
