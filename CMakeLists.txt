@@ -6,7 +6,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
 endif()
 
 # project information
-project(cpp_template
+project(
+  mwcas_bench
   VERSION "0.1.0"
   DESCRIPTION "A template project for C++ language."
   LANGUAGES "CXX"
@@ -93,11 +94,13 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/gflags-src
 #--------------------------------------------------------------------------------------#
 
 # build executable
-add_executable(cpp_template
+add_executable(
+  mwcas_bench
   "${PROJECT_SOURCE_DIR}/main.cpp"
 )
-target_compile_features(cpp_template PRIVATE "cxx_std_17")
-target_compile_options(cpp_template PRIVATE
+target_compile_features(mwcas_bench PRIVATE "cxx_std_17")
+target_compile_options(
+  mwcas_bench PRIVATE
   -Wall
   -Wextra
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Release">:"-O2 -march=native">
@@ -105,21 +108,24 @@ target_compile_options(cpp_template PRIVATE
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
 )
 target_compile_definitions(
-  cpp_template PRIVATE
+  mwcas_bench PRIVATE
   MWCAS_BENCH_MAX_FIELD_NUM=${MWCAS_BENCH_MAX_FIELD_NUM}
 )
-target_include_directories(cpp_template PRIVATE
+target_include_directories(
+  mwcas_bench PRIVATE
   "${PMWCAS_SOURCE_DIR}/"
   "${PMWCAS_SOURCE_DIR}/src"
   "${PMWCAS_SOURCE_DIR}/include"
 )
-target_link_libraries(cpp_template PRIVATE
+target_link_libraries(
+  mwcas_bench PRIVATE
   mwcas
   pmwcas_static
   gflags
   rt
 )
-add_dependencies(cpp_template
+add_dependencies(
+  mwcas_bench
   mwcas
   pmwcas_static
 )
