@@ -29,12 +29,14 @@ class WorkerSingleCAS : public Worker
   void
   PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_fields) override
   {
-    const auto addr = shared_fields_ + target_fields.front();
-    auto target = reinterpret_cast<std::atomic_size_t *>(addr);
-    auto old_val = target->load(std::memory_order_relaxed);
-    while (true) {
-      const auto new_val = old_val + 1;
-      if (target->compare_exchange_weak(old_val, new_val, std::memory_order_relaxed)) break;
+    for (size_t i = 0; i < target_field_num_; ++i) {
+      const auto addr = shared_fields_ + target_fields[i];
+      auto target = reinterpret_cast<std::atomic_size_t *>(addr);
+      auto old_val = target->load(std::memory_order_relaxed);
+      size_t new_val;
+      do {
+        new_val = old_val + 1;
+      } while (!target->compare_exchange_weak(old_val, new_val, std::memory_order_relaxed));
     }
   }
 
