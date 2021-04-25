@@ -28,10 +28,12 @@
     "-runtime/references"
   ],
   "cSpell.words": [
+    "CPUs",
     "DBUILD",
     "DCMAKE",
     "DMWCAS",
     "GLOG",
+    "NUMS",
     "PMEM",
     "PMWCAS",
     "Wextra",
@@ -42,6 +44,7 @@
     "libgflags",
     "libnuma",
     "mwcas",
+    "numactl",
     "pthread"
   ],
   "files.associations": {
