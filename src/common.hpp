@@ -18,4 +18,8 @@ enum BenchTarget
   kSingleCAS
 };
 
+#ifdef MWCAS_BENCH_MAX_FIELD_NUM
+constexpr size_t kMaxTargetNum = MWCAS_BENCH_MAX_FIELD_NUM;
+#else
 constexpr size_t kMaxTargetNum = 8;
+#endif

@@ -14,25 +14,9 @@
 
 class WorkerMwCAS : public Worker
 {
- public:
+ protected:
   /*################################################################################################
-   * Public constructors/destructors
-   *##############################################################################################*/
-
-  WorkerMwCAS(  //
-      size_t* shared_fields,
-      const size_t shared_field_num,
-      const size_t target_field_num,
-      const size_t read_ratio,
-      const size_t operation_counts,
-      const size_t random_seed = 0)
-      : Worker{shared_fields, shared_field_num, target_field_num,
-               read_ratio,    operation_counts, random_seed}
-  {
-  }
-
-  /*################################################################################################
-   * Public override functions
+   * Inherited utility functions
    *##############################################################################################*/
 
   void
@@ -55,5 +39,23 @@ class WorkerMwCAS : public Worker
       }
       if (desc.MwCAS()) break;
     }
+  }
+
+ public:
+  /*################################################################################################
+   * Public constructors/destructors
+   *##############################################################################################*/
+
+  WorkerMwCAS(  //
+      size_t* shared_fields,
+      const size_t shared_field_num,
+      const size_t target_field_num,
+      const size_t read_ratio,
+      const size_t operation_counts,
+      const size_t loop_num,
+      const size_t random_seed = 0)
+      : Worker{shared_fields,    shared_field_num, target_field_num, read_ratio,
+               operation_counts, loop_num,         random_seed}
+  {
   }
 };

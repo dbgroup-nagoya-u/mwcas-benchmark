@@ -6,7 +6,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
 endif()
 
 # project information
-project(cpp_template
+project(
+  mwcas_bench
   VERSION "0.1.0"
   DESCRIPTION "A template project for C++ language."
   LANGUAGES "CXX"
@@ -15,11 +16,23 @@ project(cpp_template
 # define source directories
 set(PROJECT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+# set compile options
+set(
+  MWCAS_BENCH_MAX_FIELD_NUM
+  "8"
+  CACHE STRING
+  "The maximum number of target words of MwCAS."
+)
+
 #--------------------------------------------------------------------------------------#
 # Configure MwCAS
 #--------------------------------------------------------------------------------------#
 
 set(MWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
+
+# set MwCAS capacity
+set(MWCAS_CAPACITY "${MWCAS_BENCH_MAX_FIELD_NUM}" CACHE STRING "" FORCE)
+
 add_subdirectory("${MWCAS_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
@@ -41,6 +54,9 @@ endif()
 
 # build volatile PMwCAS
 set(PMEM_BACKEND "Volatile" CACHE STRING "" FORCE)
+
+# set MwCAS capacity
+set(DESC_CAP "${MWCAS_BENCH_MAX_FIELD_NUM}" CACHE STRING "" FORCE)
 
 # prevent building Google libraries
 set(GOOGLE_FRAMEWORK OFF CACHE BOOL "" FORCE)
@@ -85,36 +101,45 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/gflags-src
 #--------------------------------------------------------------------------------------#
 
 # build executable
-add_executable(cpp_template
+add_executable(
+  mwcas_bench
   "${PROJECT_SOURCE_DIR}/main.cpp"
 )
-target_compile_features(cpp_template PRIVATE "cxx_std_17")
-target_compile_options(cpp_template PRIVATE
+target_compile_features(mwcas_bench PRIVATE "cxx_std_17")
+target_compile_options(
+  mwcas_bench PRIVATE
   -Wall
   -Wextra
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Release">:"-O2 -march=native">
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
 )
-target_include_directories(cpp_template PRIVATE
+target_compile_definitions(
+  mwcas_bench PRIVATE
+  MWCAS_BENCH_MAX_FIELD_NUM=${MWCAS_BENCH_MAX_FIELD_NUM}
+)
+target_include_directories(
+  mwcas_bench PRIVATE
   "${PMWCAS_SOURCE_DIR}/"
   "${PMWCAS_SOURCE_DIR}/src"
   "${PMWCAS_SOURCE_DIR}/include"
 )
-target_link_libraries(cpp_template PRIVATE
+target_link_libraries(
+  mwcas_bench PRIVATE
   mwcas
   pmwcas_static
   gflags
   rt
 )
-add_dependencies(cpp_template
+add_dependencies(
+  mwcas_bench
   mwcas
   pmwcas_static
 )
 
 # build unit tests if required
-option(BUILD_TESTS, "Build unit tests" OFF)
-if(${BUILD_TESTS})
+option(MWCAS_BENCH_BUILD_TESTS, "Build unit tests" OFF)
+if(${MWCAS_BENCH_BUILD_TESTS})
   # enable CTest
   enable_testing()
   # include unit tests
