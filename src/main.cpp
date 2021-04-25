@@ -52,6 +52,8 @@ DEFINE_bool(ours, true, "Use MwCAS library (DB Group @ Nagoya Univ.) as a benchm
 DEFINE_bool(microsoft, false, "Use PMwCAS library (Microsoft) as a benchmark target");
 DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
 DEFINE_bool(csv, false, "Output benchmark results as CSV format");
+DEFINE_bool(throughput, true, "Measure throughput");
+DEFINE_bool(latency, true, "Measure latency");
 
 /*##################################################################################################
  * Global variables
@@ -110,6 +112,12 @@ class MwCASBench
 
   /// the number of target fields for each MwCAS
   const size_t num_target_;
+
+  /// a flag to measure throughput
+  const bool measure_throughput_;
+
+  /// a flag to measure latency
+  const bool measure_latency_;
 
   /// target fields of MwCAS
   size_t *shared_fields_;
@@ -198,14 +206,14 @@ class MwCASBench
     {
       // wait for benchmark to be ready
       const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st);
-      worker->MeasureThroughput();
+      if (measure_throughput_) worker->MeasureThroughput();
 
       // unlock to notice that worker has measured thuroughput
     }
     {
       // wait for benchmark to be ready
       const auto guard = std::shared_lock<std::shared_mutex>(mutex_2nd);
-      worker->MeasureLatency();
+      if (measure_latency_) worker->MeasureLatency();
 
       // unlock to notice that worker has measured latency
     }
@@ -229,12 +237,14 @@ class MwCASBench
         num_loop_{FLAGS_num_loop},
         num_thread_{FLAGS_num_thread},
         num_shared_{FLAGS_num_shared},
-        num_target_{FLAGS_num_target}
+        num_target_{FLAGS_num_target},
+        measure_throughput_{FLAGS_throughput},
+        measure_latency_{FLAGS_latency}
   {
     // prepare PMwCAS descriptor pool
     pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
                         pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
-    desc_pool_ = new pmwcas::DescriptorPool{static_cast<uint32_t>(4096 * num_thread_),
+    desc_pool_ = new pmwcas::DescriptorPool{static_cast<uint32_t>(8192 * num_thread_),
                                             static_cast<uint32_t>(num_thread_)};
 
     // prepare shared target fields
@@ -277,7 +287,7 @@ class MwCASBench
       // unlock to run workers
     }
 
-    Log("Run workers to measure throughput...");
+    if (measure_throughput_) Log("Run workers to measure throughput...");
 
     {
       // create a lock to stop workers from running
@@ -291,7 +301,7 @@ class MwCASBench
       // unlock to run workers
     }
 
-    Log("Run workers to measure latency...");
+    if (measure_latency_) Log("Run workers to measure latency...");
 
     {
       // create a lock to stop workers from running
@@ -310,53 +320,57 @@ class MwCASBench
       results.emplace_back(future.get());
     }
 
-    // compute throughput
     const size_t total_exec_num = num_exec_ * num_loop_ * num_thread_;
-    size_t avg_nano_time = 0;
-    for (auto &&worker : results) {
-      avg_nano_time += worker->GetTotalExecTime();
-    }
-    avg_nano_time /= num_thread_;
-    const auto throughput = total_exec_num / (avg_nano_time / 1E9);
-
-    LogThroughput(throughput);
-
-    // compute latency
-    size_t lat_0 = std::numeric_limits<size_t>::max(), lat_90, lat_95, lat_99, lat_100;
-    std::vector<size_t> indexes;
-    indexes.reserve(num_thread_);
-    for (size_t thread = 0; thread < num_thread_; ++thread) {
-      indexes.emplace_back(num_exec_ * num_loop_ - 1);
-      const auto exec_time = results[thread]->GetLatency(0);
-      if (exec_time < lat_0) {
-        lat_0 = exec_time;
+    if (measure_throughput_) {
+      // compute throughput
+      size_t avg_nano_time = 0;
+      for (auto &&worker : results) {
+        avg_nano_time += worker->GetTotalExecTime();
       }
+      avg_nano_time /= num_thread_;
+      const auto throughput = total_exec_num / (avg_nano_time / 1E9);
+
+      LogThroughput(throughput);
     }
-    for (size_t count = total_exec_num; count >= total_exec_num * 0.90; --count) {
-      int64_t target_thread = -1;
-      auto max_exec_time = std::numeric_limits<size_t>::min();
+
+    if (measure_latency_) {
+      // compute latency
+      size_t lat_0 = std::numeric_limits<size_t>::max(), lat_90, lat_95, lat_99, lat_100;
+      std::vector<size_t> indexes;
+      indexes.reserve(num_thread_);
       for (size_t thread = 0; thread < num_thread_; ++thread) {
-        const auto exec_time = results[thread]->GetLatency(indexes[thread]);
-        if (exec_time > max_exec_time) {
-          max_exec_time = exec_time;
-          target_thread = thread;
+        indexes.emplace_back(num_exec_ * num_loop_ - 1);
+        const auto exec_time = results[thread]->GetLatency(0);
+        if (exec_time < lat_0) {
+          lat_0 = exec_time;
         }
       }
-      if (count == total_exec_num) {
-        lat_100 = max_exec_time;
-      } else if (count == static_cast<size_t>(total_exec_num * 0.99)) {
-        lat_99 = max_exec_time;
-      } else if (count == static_cast<size_t>(total_exec_num * 0.95)) {
-        lat_95 = max_exec_time;
-      } else if (count == static_cast<size_t>(total_exec_num * 0.90)) {
-        lat_90 = max_exec_time;
+      for (size_t count = total_exec_num; count >= total_exec_num * 0.90; --count) {
+        int64_t target_thread = -1;
+        auto max_exec_time = std::numeric_limits<size_t>::min();
+        for (size_t thread = 0; thread < num_thread_; ++thread) {
+          const auto exec_time = results[thread]->GetLatency(indexes[thread]);
+          if (exec_time > max_exec_time) {
+            max_exec_time = exec_time;
+            target_thread = thread;
+          }
+        }
+        if (count == total_exec_num) {
+          lat_100 = max_exec_time;
+        } else if (count == static_cast<size_t>(total_exec_num * 0.99)) {
+          lat_99 = max_exec_time;
+        } else if (count == static_cast<size_t>(total_exec_num * 0.95)) {
+          lat_95 = max_exec_time;
+        } else if (count == static_cast<size_t>(total_exec_num * 0.90)) {
+          lat_90 = max_exec_time;
+        }
+
+        --indexes[target_thread];
       }
 
-      --indexes[target_thread];
+      Log("Percentiled Latencies [ns]:");
+      LogLatency(lat_0, lat_90, lat_95, lat_99, lat_100);
     }
-
-    Log("Percentiled Latencies [ns]:");
-    LogLatency(lat_0, lat_90, lat_95, lat_99, lat_100);
 
     for (auto &&worker : results) {
       delete worker;

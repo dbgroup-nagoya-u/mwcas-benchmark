@@ -29,6 +29,10 @@ set(
 #--------------------------------------------------------------------------------------#
 
 set(MWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
+
+# set MwCAS capacity
+set(MWCAS_CAPACITY "${MWCAS_BENCH_MAX_FIELD_NUM}" CACHE STRING "" FORCE)
+
 add_subdirectory("${MWCAS_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
@@ -50,6 +54,9 @@ endif()
 
 # build volatile PMwCAS
 set(PMEM_BACKEND "Volatile" CACHE STRING "" FORCE)
+
+# set MwCAS capacity
+set(DESC_CAP "${MWCAS_BENCH_MAX_FIELD_NUM}" CACHE STRING "" FORCE)
 
 # prevent building Google libraries
 set(GOOGLE_FRAMEWORK OFF CACHE BOOL "" FORCE)
