@@ -69,8 +69,10 @@ for SHARED_NUM in ${SHARED_CANDIDATES}; do
           IMPL_ARGS="--ours=t --microsoft=f --single=f"
         elif [ ${IMPL} == 1 ]; then
           IMPL_ARGS="--ours=f --microsoft=t --single=f"
-        else
+        elif [ ${TARGET_NUM} == 1 ]; then
           IMPL_ARGS="--ours=f --microsoft=f --single=t"
+        else
+          continue
         fi
         for LOOP in {1..${BENCH_REPEAT_COUNT}}; do
           echo -n "${SHARED_NUM},${TARGET_NUM},${IMPL},${THREAD_NUM},"
