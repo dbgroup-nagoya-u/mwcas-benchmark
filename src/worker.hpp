@@ -10,6 +10,9 @@
 #include <vector>
 
 #include "common.hpp"
+#include "random/zipf.hpp"
+
+using ::dbgroup::random::zipf::ZipfGenerator;
 
 class Worker
 {
@@ -34,7 +37,9 @@ class Worker
 
   std::vector<size_t> exec_times_nano_;
 
-  size_t shared_field_num_;
+  size_t target_filed_num_;
+
+  double skew_parameter_;
 
   /*################################################################################################
    * Internal utility functions
@@ -52,28 +57,32 @@ class Worker
     mwcas_targets_.reserve(operation_counts_);
 
     std::mt19937_64 rand_engine{random_seed_};
+    ZipfGenerator zipf_engine{target_filed_num_, skew_parameter_, random_seed_};
     for (size_t i = 0; i < operation_counts_; ++i) {
-      // create an operation-queue
+      // select i-th operation
       const auto ops = (rand_engine() % 100 < read_ratio_) ? Operation::kRead : Operation::kWrite;
       operation_queue_.emplace_back(ops);
 
-      // select target fields for each operation
-      std::array<size_t, kMaxTargetNum> target_field;
-      for (size_t j = 0; j < target_num_; ++j) {
-        const auto rand_val = rand_engine() % shared_field_num_;
-        const auto current_end = target_field.begin() + j;
-        if (std::find(target_field.begin(), current_end, rand_val) != current_end) {
-          --j;
-          continue;
+      // select target fields for i-th operation
+      std::array<size_t, kMaxTargetNum> mwcas_target;
+      for (size_t j = 0; j < mwcas_target_num_; ++j) {
+        auto field_id = zipf_engine();
+        const auto current_end = mwcas_target.begin() + j;
+        while (std::find(mwcas_target.begin(), current_end, field_id) != current_end) {
+          // if there is a selected id in targets, pick next to it
+          ++field_id;
         }
 
-        target_field[j] = rand_val;
+        mwcas_target[j] = field_id;
         if (operation_queue_[i] == Operation::kRead) {
+          // a read operation requires only one target
           break;
         }
       }
-      std::sort(target_field.begin(), target_field.begin() + target_num_);
-      mwcas_targets_.emplace_back(std::move(target_field));
+
+      // sort MwCAS targets to prevent deadlocks
+      std::sort(mwcas_target.begin(), mwcas_target.begin() + mwcas_target_num_);
+      mwcas_targets_.emplace_back(std::move(mwcas_target));
     }
   }
 
@@ -84,7 +93,7 @@ class Worker
 
   size_t *target_fields_;
 
-  size_t target_num_;
+  size_t mwcas_target_num_;
 
   /*################################################################################################
    * Inherited utility functions
@@ -101,20 +110,22 @@ class Worker
 
   Worker(  //
       size_t *target_fields,
-      const size_t shared_field_num,
-      const size_t target_num,
+      const size_t target_field_num,
+      const size_t mwcas_target_num,
       const size_t read_ratio,
       const size_t operation_counts,
       const size_t loop_num,
+      const double skew_parameter,
       const size_t random_seed = 0)
       : read_ratio_{read_ratio},
         operation_counts_{operation_counts},
         loop_num_{loop_num},
         random_seed_{random_seed},
         exec_time_nano_{0},
-        shared_field_num_{shared_field_num},
+        target_filed_num_{target_field_num},
+        skew_parameter_{skew_parameter},
         target_fields_{target_fields},
-        target_num_{target_num}
+        mwcas_target_num_{mwcas_target_num}
   {
     PrepareBench();
   }

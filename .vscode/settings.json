@@ -45,7 +45,8 @@
     "libnuma",
     "mwcas",
     "numactl",
-    "pthread"
+    "pthread",
+    "zipf"
   ],
   "files.associations": {
     "fstream": "cpp",
