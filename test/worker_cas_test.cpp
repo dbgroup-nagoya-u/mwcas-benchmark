@@ -56,8 +56,8 @@ TEST_F(WorkerSingleCASFixture, MeasureThroughput_SwapSameFields_MeasureReasonabl
   const auto total_time =
       std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
 
-  EXPECT_GT(worker->GetTotalExecTime(), 0);
-  EXPECT_LT(worker->GetTotalExecTime(), total_time);
+  EXPECT_GE(worker->GetTotalExecTime(), 0);
+  EXPECT_LE(worker->GetTotalExecTime(), total_time);
 }
 
 TEST_F(WorkerSingleCASFixture, MeasureLatency_SwapSameFields_ReadCorrectValues)
@@ -79,9 +79,9 @@ TEST_F(WorkerSingleCASFixture, MeasureLatency_SwapSameFields_MeasureReasonableLa
 
   worker->SortExecutionTimes();
 
-  EXPECT_GT(worker->GetLatency(0), 0);
+  EXPECT_GE(worker->GetLatency(0), 0);
   for (size_t i = 1; i < kOperationNum; ++i) {
     EXPECT_GE(worker->GetLatency(i), worker->GetLatency(i - 1));
   }
-  EXPECT_LT(worker->GetLatency(kOperationNum - 1), total_time);
+  EXPECT_LE(worker->GetLatency(kOperationNum - 1), total_time);
 }

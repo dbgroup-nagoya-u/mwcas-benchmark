@@ -28,7 +28,7 @@ class WorkerPMwCASFixture : public ::testing::Test
   {
     pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
                         pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
-    desc_pool = std::make_unique<pmwcas::DescriptorPool>(1024, 8);
+    desc_pool = std::make_unique<pmwcas::DescriptorPool>(1024, 1);
 
     target_fields = std::make_unique<size_t[]>(kTargetFieldNum);
     for (size_t i = 0; i < kTargetFieldNum; ++i) {
@@ -63,8 +63,8 @@ TEST_F(WorkerPMwCASFixture, MeasureThroughput_SwapSameFields_MeasureReasonableEx
   const auto total_time =
       std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
 
-  EXPECT_GT(worker->GetTotalExecTime(), 0);
-  EXPECT_LT(worker->GetTotalExecTime(), total_time);
+  EXPECT_GE(worker->GetTotalExecTime(), 0);
+  EXPECT_LE(worker->GetTotalExecTime(), total_time);
 }
 
 TEST_F(WorkerPMwCASFixture, MeasureLatency_SwapSameFields_ReadCorrectValues)
@@ -86,9 +86,9 @@ TEST_F(WorkerPMwCASFixture, MeasureLatency_SwapSameFields_MeasureReasonableLaten
 
   worker->SortExecutionTimes();
 
-  EXPECT_GT(worker->GetLatency(0), 0);
+  EXPECT_GE(worker->GetLatency(0), 0);
   for (size_t i = 1; i < kOperationNum; ++i) {
     EXPECT_GE(worker->GetLatency(i), worker->GetLatency(i - 1));
   }
-  EXPECT_LT(worker->GetLatency(kOperationNum - 1), total_time);
+  EXPECT_LE(worker->GetLatency(kOperationNum - 1), total_time);
 }
