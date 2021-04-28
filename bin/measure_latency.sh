@@ -61,25 +61,25 @@ fi
 
 source ${WORKSPACE_DIR}/config/bench.env
 
-for SHARED_NUM in ${SHARED_CANDIDATES}; do
+for SKEW_PARAMETER in ${SKEW_CANDIDATES}; do
   for TARGET_NUM in ${TARGET_CANDIDATES}; do
     for THREAD_NUM in ${THREAD_CANDIDATES}; do
       for IMPL in ${IMPL_CANDIDATES}; do
         if [ ${IMPL} == 0 ]; then
-          IMPL_ARGS="--ours=t --microsoft=f --single=f"
+          IMPL_ARGS="--ours=t --pmwcas=f --single=f"
         elif [ ${IMPL} == 1 ]; then
-          IMPL_ARGS="--ours=f --microsoft=t --single=f"
+          IMPL_ARGS="--ours=f --pmwcas=t --single=f"
         elif [ ${TARGET_NUM} == 1 ]; then
-          IMPL_ARGS="--ours=f --microsoft=f --single=t"
+          IMPL_ARGS="--ours=f --pmwcas=f --single=t"
         else
           continue
         fi
         for LOOP in {1..${BENCH_REPEAT_COUNT}}; do
-          echo -n "${SHARED_NUM},${TARGET_NUM},${IMPL},${THREAD_NUM},"
+          echo -n "${SKEW_PARAMETER},${TARGET_NUM},${IMPL},${THREAD_NUM},"
           ${BENCH_BIN} \
             --csv --throughput=f --latency=t ${IMPL_ARGS} \
             --num_exec ${OPERATION_COUNT} --num_loop ${OPERATION_REPEAT_COUNT} \
-            --num_target ${TARGET_NUM} --num_shared ${SHARED_NUM} \
+            --num_target ${TARGET_NUM} --skew_parameter ${SKEW_PARAMETER} \
             --num_thread ${THREAD_NUM}
           echo ""
         done

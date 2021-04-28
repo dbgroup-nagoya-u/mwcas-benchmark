@@ -1,4 +1,4 @@
-# Simple MwCAS benchmark
+# MwCAS benchmark
 
 ![Unit Tests](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/workflows/Unit%20Tests/badge.svg?branch=main)
 
@@ -27,3 +27,13 @@ cmake -DCMAKE_BUILD_TYPE=Release -DMWCAS_BENCH_BUILD_TESTS=on ..
 make -j
 ctest -C Release
 ```
+
+## Usage
+
+The following command displays available CLI options:
+
+```bash
+./build/mwcas_bench --helpshort
+```
+
+We prepare scripts in `bin` directory to measure performance with a variety of paramters. You can set parameters for benchmarking by `config/bench.env`.

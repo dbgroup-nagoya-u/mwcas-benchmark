@@ -14,7 +14,7 @@ project(
 )
 
 # define source directories
-set(PROJECT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+set(MWCAS_BENCH_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 # set compile options
 set(
@@ -97,13 +97,38 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/gflags-src
                  EXCLUDE_FROM_ALL)
 
 #--------------------------------------------------------------------------------------#
+# Configure cpp-utility
+#--------------------------------------------------------------------------------------#
+configure_file(external/CMakeLists-cpp-utility.txt.in cpp-utility-download/CMakeLists.txt)
+execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+  RESULT_VARIABLE result
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-download )
+if(result)
+  message(FATAL_ERROR "CMake step for cpp-utility failed: ${result}")
+endif()
+execute_process(COMMAND ${CMAKE_COMMAND} --build .
+  RESULT_VARIABLE result
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-download )
+if(result)
+  message(FATAL_ERROR "Build step for cpp-utility failed: ${result}")
+endif()
+
+# prevent building unit tests
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+
+# add cpp-utility directly to our build
+add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-src
+                 ${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-build
+                 EXCLUDE_FROM_ALL)
+
+#--------------------------------------------------------------------------------------#
 # Build Benchmark
 #--------------------------------------------------------------------------------------#
 
 # build executable
 add_executable(
   mwcas_bench
-  "${PROJECT_SOURCE_DIR}/main.cpp"
+  "${MWCAS_BENCH_SOURCE_DIR}/mwcas_bench.cpp"
 )
 target_compile_features(mwcas_bench PRIVATE "cxx_std_17")
 target_compile_options(
@@ -130,11 +155,11 @@ target_link_libraries(
   pmwcas_static
   gflags
   rt
+  cpp_utility
 )
 add_dependencies(
   mwcas_bench
   mwcas
-  pmwcas_static
 )
 
 # build unit tests if required

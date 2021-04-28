@@ -22,15 +22,15 @@ class WorkerSingleCAS : public Worker
   void
   ReadMwCASField(const size_t index) override
   {
-    const auto addr = shared_fields_ + index;
+    const auto addr = target_fields_ + index;
     reinterpret_cast<std::atomic_size_t *>(addr)->load(std::memory_order_relaxed);
   }
 
   void
   PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_fields) override
   {
-    for (size_t i = 0; i < target_field_num_; ++i) {
-      const auto addr = shared_fields_ + target_fields[i];
+    for (size_t i = 0; i < mwcas_target_num_; ++i) {
+      const auto addr = target_fields_ + target_fields[i];
       auto target = reinterpret_cast<std::atomic_size_t *>(addr);
       auto old_val = target->load(std::memory_order_relaxed);
       size_t new_val;
@@ -46,15 +46,16 @@ class WorkerSingleCAS : public Worker
    *##############################################################################################*/
 
   WorkerSingleCAS(  //
-      size_t *shared_fields,
-      const size_t shared_field_num,
+      size_t *target_fields,
       const size_t target_field_num,
+      const size_t mwcas_target_num,
       const size_t read_ratio,
       const size_t operation_counts,
       const size_t loop_num,
+      const double skew_parameter,
       const size_t random_seed = 0)
-      : Worker{shared_fields,    shared_field_num, target_field_num, read_ratio,
-               operation_counts, loop_num,         random_seed}
+      : Worker{target_fields,    target_field_num, mwcas_target_num, read_ratio,
+               operation_counts, loop_num,         skew_parameter,   random_seed}
   {
   }
 };

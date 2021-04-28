@@ -5,20 +5,29 @@
 
 #include <cstdint>
 
+/**
+ * @brief A list of MwCAS operations.
+ *
+ */
 enum Operation
 {
   kRead,
   kWrite
 };
 
+/**
+ * @brief A list of MwCAS implementations.
+ *
+ */
 enum BenchTarget
 {
   kOurs,
-  kMicrosoft,
+  kPMwCAS,
   kSingleCAS
 };
 
 #ifdef MWCAS_BENCH_MAX_FIELD_NUM
+/// the maximum number of MwCAS targets
 constexpr size_t kMaxTargetNum = MWCAS_BENCH_MAX_FIELD_NUM;
 #else
 constexpr size_t kMaxTargetNum = 8;
