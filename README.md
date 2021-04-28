@@ -1,4 +1,4 @@
-# Simple MwCAS benchmark
+# MwCAS benchmark
 
 ![Unit Tests](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/workflows/Unit%20Tests/badge.svg?branch=main)
 
@@ -36,4 +36,4 @@ The following command displays available CLI options:
 ./build/mwcas_bench --helpshort
 ```
 
-If you want to measure performance with a variety of paramters, we recommend the use of scripts in `bin` directory. You can set parameters for benchmarking by modifying `config/bench.env`.
+We prepare scripts in `bin` directory to measure performance with a variety of paramters. You can set parameters for benchmarking by `config/bench.env`.
