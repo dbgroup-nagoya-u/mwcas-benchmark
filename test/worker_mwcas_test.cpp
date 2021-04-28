@@ -8,13 +8,24 @@
 class WorkerMwCASFixture : public ::testing::Test
 {
  public:
-  int64_t common_variable;
+  static constexpr size_t kTargetFieldNum = 2;
+  static constexpr size_t kTargetNum = 2;
+  static constexpr size_t kReadRatio = 0;
+  static constexpr size_t kOperationNum = 1000;
+  static constexpr size_t kLoopNum = 1;
+  static constexpr double kSkewParameter = 0;
+  static constexpr size_t kRandomSeed = 0;
+
+  std::unique_ptr<size_t[]> target_fields;
 
  protected:
   void
   SetUp() override
   {
-    common_variable = 0;
+    target_fields = std::make_unique<size_t[]>(kTargetFieldNum);
+    for (size_t i = 0; i < kTargetFieldNum; ++i) {
+      target_fields[i] = 0;
+    }
   }
 
   void
@@ -23,15 +34,26 @@ class WorkerMwCASFixture : public ::testing::Test
   }
 };
 
-TEST_F(WorkerMwCASFixture, TestTarget_Situation_DesiredResults)
+TEST_F(WorkerMwCASFixture, MeasureThroughput_SwapSameFields_ReadCorrectValues)
 {
-  EXPECT_EQ(0, common_variable);
-  EXPECT_NE(1, common_variable);
-  EXPECT_LT(common_variable, 1);
-  EXPECT_LE(common_variable, 0);
-  EXPECT_GT(1, common_variable);
-  EXPECT_GE(0, common_variable);
-  auto is_equal = common_variable == 0;
-  EXPECT_TRUE(is_equal);
-  EXPECT_FALSE(!is_equal);
+  WorkerMwCAS worker{target_fields.get(), kTargetFieldNum, kTargetNum,     kReadRatio,
+                     kOperationNum,       kLoopNum,        kSkewParameter, kRandomSeed};
+
+  worker.MeasureThroughput();
+
+  for (size_t i = 0; i < kTargetFieldNum; ++i) {
+    EXPECT_EQ(target_fields[i], kOperationNum);
+  }
+}
+
+TEST_F(WorkerMwCASFixture, MeasureLatency_SwapSameFields_ReadCorrectValues)
+{
+  WorkerMwCAS worker{target_fields.get(), kTargetFieldNum, kTargetNum,     kReadRatio,
+                     kOperationNum,       kLoopNum,        kSkewParameter, kRandomSeed};
+
+  worker.MeasureLatency();
+
+  for (size_t i = 0; i < kTargetFieldNum; ++i) {
+    EXPECT_EQ(target_fields[i], kOperationNum);
+  }
 }

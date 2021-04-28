@@ -85,12 +85,11 @@ class Worker
       // select target fields for i-th operation
       std::array<size_t, kMaxTargetNum> mwcas_target;
       for (size_t j = 0; j < mwcas_target_num_; ++j) {
-        auto field_id = zipf_engine();
         const auto current_end = mwcas_target.begin() + j;
-        while (std::find(mwcas_target.begin(), current_end, field_id) != current_end) {
-          // if there is a selected id in targets, pick next to it
-          ++field_id;
-        }
+        size_t field_id;
+        do {
+          field_id = zipf_engine();
+        } while (std::find(mwcas_target.begin(), current_end, field_id) != current_end);
 
         mwcas_target[j] = field_id;
         if (operation_queue_[i] == Operation::kRead) {
