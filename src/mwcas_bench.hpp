@@ -107,9 +107,23 @@ class MwCASBench
    * Private utility functions
    *##############################################################################################*/
 
+  /**
+   * @brief Compute a throughput score and output it to stdout.
+   *
+   * @param workers worker pointers that hold benchmark results
+   */
   void
-  LogThroughput(const double throughput) const
+  LogThroughput(const std::vector<Worker *> &workers) const
   {
+    size_t avg_nano_time = 0;
+    for (auto &&worker : workers) {
+      avg_nano_time += worker->GetTotalExecTime();
+    }
+    avg_nano_time /= thread_num_;
+
+    const size_t total_exec_num = exec_num_ * repeat_num_ * thread_num_;
+    const auto throughput = total_exec_num / (avg_nano_time / 1E9);
+
     if (output_format_is_text) {
       std::cout << "Throughput [Ops/s]: " << throughput << std::endl;
     } else {
@@ -117,14 +131,55 @@ class MwCASBench
     }
   }
 
+  /**
+   * @brief Compute percentiled latency and output it to stdout.
+   *
+   * @param workers worker pointers that hold benchmark results
+   */
   void
-  LogLatency(  //
-      const size_t lat_0,
-      const size_t lat_90,
-      const size_t lat_95,
-      const size_t lat_99,
-      const size_t lat_100) const
+  LogLatency(const std::vector<Worker *> &workers) const
   {
+    size_t lat_0 = std::numeric_limits<size_t>::max(), lat_90, lat_95, lat_99, lat_100;
+
+    // compute the minimum latency and initialize an index list
+    std::vector<size_t> indexes;
+    indexes.reserve(thread_num_);
+    for (size_t thread = 0; thread < thread_num_; ++thread) {
+      indexes.emplace_back(exec_num_ * repeat_num_ - 1);
+      const auto exec_time = workers[thread]->GetLatency(0);
+      if (exec_time < lat_0) {
+        lat_0 = exec_time;
+      }
+    }
+
+    // check latency with descending order
+    const size_t total_exec_num = exec_num_ * repeat_num_ * thread_num_;
+    for (size_t count = total_exec_num; count >= total_exec_num * 0.90; --count) {
+      size_t target_thread = 0;
+      auto max_exec_time = std::numeric_limits<size_t>::min();
+      for (size_t thread = 0; thread < thread_num_; ++thread) {
+        const auto exec_time = workers[thread]->GetLatency(indexes[thread]);
+        if (exec_time > max_exec_time) {
+          max_exec_time = exec_time;
+          target_thread = thread;
+        }
+      }
+
+      // if `count` reaches target percentiles, store its latency
+      if (count == total_exec_num) {
+        lat_100 = max_exec_time;
+      } else if (count == static_cast<size_t>(total_exec_num * 0.99)) {
+        lat_99 = max_exec_time;
+      } else if (count == static_cast<size_t>(total_exec_num * 0.95)) {
+        lat_95 = max_exec_time;
+      } else if (count == static_cast<size_t>(total_exec_num * 0.90)) {
+        lat_90 = max_exec_time;
+      }
+
+      --indexes[target_thread];
+    }
+
+    Log("Percentiled Latencies [ns]:");
     if (output_format_is_text) {
       std::cout << "  MIN: " << lat_0 << std::endl;
       std::cout << "  90%: " << lat_90 << std::endl;
@@ -332,57 +387,8 @@ class MwCASBench
       results.emplace_back(future.get());
     }
 
-    const size_t total_exec_num = exec_num_ * repeat_num_ * thread_num_;
-    if (measure_throughput_) {
-      // compute throughput
-      size_t avg_nano_time = 0;
-      for (auto &&worker : results) {
-        avg_nano_time += worker->GetTotalExecTime();
-      }
-      avg_nano_time /= thread_num_;
-      const auto throughput = total_exec_num / (avg_nano_time / 1E9);
-
-      LogThroughput(throughput);
-    }
-
-    if (measure_latency_) {
-      // compute latency
-      size_t lat_0 = std::numeric_limits<size_t>::max(), lat_90, lat_95, lat_99, lat_100;
-      std::vector<size_t> indexes;
-      indexes.reserve(thread_num_);
-      for (size_t thread = 0; thread < thread_num_; ++thread) {
-        indexes.emplace_back(exec_num_ * repeat_num_ - 1);
-        const auto exec_time = results[thread]->GetLatency(0);
-        if (exec_time < lat_0) {
-          lat_0 = exec_time;
-        }
-      }
-      for (size_t count = total_exec_num; count >= total_exec_num * 0.90; --count) {
-        int64_t target_thread = -1;
-        auto max_exec_time = std::numeric_limits<size_t>::min();
-        for (size_t thread = 0; thread < thread_num_; ++thread) {
-          const auto exec_time = results[thread]->GetLatency(indexes[thread]);
-          if (exec_time > max_exec_time) {
-            max_exec_time = exec_time;
-            target_thread = thread;
-          }
-        }
-        if (count == total_exec_num) {
-          lat_100 = max_exec_time;
-        } else if (count == static_cast<size_t>(total_exec_num * 0.99)) {
-          lat_99 = max_exec_time;
-        } else if (count == static_cast<size_t>(total_exec_num * 0.95)) {
-          lat_95 = max_exec_time;
-        } else if (count == static_cast<size_t>(total_exec_num * 0.90)) {
-          lat_90 = max_exec_time;
-        }
-
-        --indexes[target_thread];
-      }
-
-      Log("Percentiled Latencies [ns]:");
-      LogLatency(lat_0, lat_90, lat_95, lat_99, lat_100);
-    }
+    if (measure_throughput_) LogThroughput(results);
+    if (measure_latency_) LogLatency(results);
 
     for (auto &&worker : results) {
       delete worker;
