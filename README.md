@@ -27,3 +27,13 @@ cmake -DCMAKE_BUILD_TYPE=Release -DMWCAS_BENCH_BUILD_TESTS=on ..
 make -j
 ctest -C Release
 ```
+
+## Usage
+
+The following command displays available CLI options:
+
+```bash
+./build/mwcas_bench --helpshort
+```
+
+If you want to measure performance with a variety of paramters, we recommend the use of scripts in `bin` directory. You can set parameters for benchmarking by modifying `config/bench.env`.

@@ -128,7 +128,7 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-src
 # build executable
 add_executable(
   mwcas_bench
-  "${PROJECT_SOURCE_DIR}/main.cpp"
+  "${PROJECT_SOURCE_DIR}/mwcas_bench.cpp"
 )
 target_compile_features(mwcas_bench PRIVATE "cxx_std_17")
 target_compile_options(
