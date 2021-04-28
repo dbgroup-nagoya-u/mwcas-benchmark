@@ -1,9 +1,11 @@
 // Copyright (c) Database Group, Nagoya University. All rights reserved.
 // Licensed under the MIT license.
 
+#include "worker_mwcas.hpp"
+
 #include "gtest/gtest.h"
 
-class HelloWorldFixture : public ::testing::Test
+class WorkerMwCASFixture : public ::testing::Test
 {
  public:
   int64_t common_variable;
@@ -21,7 +23,7 @@ class HelloWorldFixture : public ::testing::Test
   }
 };
 
-TEST_F(HelloWorldFixture, TestTarget_Situation_DesiredResults)
+TEST_F(WorkerMwCASFixture, TestTarget_Situation_DesiredResults)
 {
   EXPECT_EQ(0, common_variable);
   EXPECT_NE(1, common_variable);
