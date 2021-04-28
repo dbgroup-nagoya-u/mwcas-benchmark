@@ -8,6 +8,7 @@
 #include <mutex>
 #include <random>
 #include <shared_mutex>
+#include <string>
 #include <thread>
 
 #include "worker.hpp"
@@ -52,6 +53,22 @@ ValidateTargetNum([[maybe_unused]] const char *flagname, const uint64_t value)
   return false;
 }
 
+static bool
+ValidateRandomSeed([[maybe_unused]] const char *flagname, const std::string &seed)
+{
+  if (seed.empty()) {
+    return true;
+  }
+
+  for (size_t i = 0; i < seed.size(); ++i) {
+    if (!std::isdigit(seed[i])) {
+      std::cout << "A random seed must be unsigned integer type" << std::endl;
+      return false;
+    }
+  }
+  return true;
+}
+
 /*##################################################################################################
  * CLI arguments
  *################################################################################################*/
@@ -69,6 +86,8 @@ DEFINE_uint64(num_target, 2, "The number of target fields for each MwCAS");
 DEFINE_validator(num_target, &ValidateTargetNum);
 DEFINE_double(skew_parameter, 0, "A skew parameter (based on Zipf's law)");
 DEFINE_validator(skew_parameter, &ValidatePositiveVal);
+DEFINE_string(seed, "", "A random seed to control reproducibility");
+DEFINE_validator(seed, &ValidateRandomSeed);
 DEFINE_bool(ours, true, "Use MwCAS library (DB Group @ Nagoya Univ.) as a benchmark target");
 DEFINE_bool(pmwcas, true, "Use PMwCAS library (Microsoft) as a benchmark target");
 DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
@@ -141,6 +160,9 @@ class MwCASBench
 
   /// a skew parameter
   const double skew_parameter_;
+
+  /// a base random seed
+  const size_t random_seed_;
 
   /// a flag to measure throughput
   const bool measure_throughput_;
@@ -282,6 +304,7 @@ class MwCASBench
         target_field_num_{FLAGS_num_field},
         mwcas_target_num_{FLAGS_num_target},
         skew_parameter_{FLAGS_skew_parameter},
+        random_seed_{std::stoul(FLAGS_seed)},
         measure_throughput_{FLAGS_throughput},
         measure_latency_{FLAGS_latency}
   {
@@ -323,7 +346,7 @@ class MwCASBench
       const auto lock = std::unique_lock<std::shared_mutex>(mutex_1st);
 
       // create workers in each thread
-      std::mt19937_64 rand_engine{0};
+      std::mt19937_64 rand_engine{random_seed_};
       for (size_t index = 0; index < thread_num_; ++index) {
         std::promise<Worker *> p;
         futures.emplace_back(p.get_future());

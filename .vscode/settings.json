@@ -46,6 +46,8 @@
     "mwcas",
     "numactl",
     "pthread",
+    "stoi",
+    "stoul",
     "zipf"
   ],
   "files.associations": {
