@@ -47,6 +47,9 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
   target_include_directories(
     ${MWCAS_BENCH_TEST_TARGET} PRIVATE
     "${MWCAS_BENCH_SOURCE_DIR}"
+    "${PMWCAS_SOURCE_DIR}/"
+    "${PMWCAS_SOURCE_DIR}/src"
+    "${PMWCAS_SOURCE_DIR}/include"
   )
   target_link_libraries(
     ${MWCAS_BENCH_TEST_TARGET} PRIVATE
@@ -66,3 +69,5 @@ endfunction()
 
 # add unit tests to build targets
 ADD_MWCAS_BENCH_TEST("worker_mwcas_test")
+ADD_MWCAS_BENCH_TEST("worker_pmwcas_test")
+ADD_MWCAS_BENCH_TEST("worker_cas_test")
