@@ -15,6 +15,10 @@
 #include "worker_mwcas.hpp"
 #include "worker_pmwcas.hpp"
 
+/*##################################################################################################
+ * CLI validators
+ *################################################################################################*/
+
 template <class Number>
 static bool
 ValidatePositiveVal(const char *flagname, const Number value)
@@ -48,7 +52,10 @@ ValidateTargetNum([[maybe_unused]] const char *flagname, const uint64_t value)
   return false;
 }
 
-// set command line options
+/*##################################################################################################
+ * CLI arguments
+ *################################################################################################*/
+
 DEFINE_uint64(read_ratio, 0, "The ratio of MwCAS read operations [%]");
 DEFINE_uint64(num_exec, 10000, "The number of MwCAS operations executed in each thread");
 DEFINE_validator(num_exec, &ValidateNonZero);
@@ -63,7 +70,7 @@ DEFINE_validator(num_target, &ValidateTargetNum);
 DEFINE_double(skew_parameter, 0, "A skew parameter (based on Zipf's law)");
 DEFINE_validator(skew_parameter, &ValidatePositiveVal);
 DEFINE_bool(ours, true, "Use MwCAS library (DB Group @ Nagoya Univ.) as a benchmark target");
-DEFINE_bool(microsoft, false, "Use PMwCAS library (Microsoft) as a benchmark target");
+DEFINE_bool(pmwcas, true, "Use PMwCAS library (Microsoft) as a benchmark target");
 DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
 DEFINE_bool(csv, false, "Output benchmark results as CSV format");
 DEFINE_bool(throughput, true, "Measure throughput");
@@ -73,10 +80,10 @@ DEFINE_bool(latency, true, "Measure latency");
  * Global variables
  *################################################################################################*/
 
-/// a mutex to trigger workers simultaneously
+/// a mutex to control workers
 std::shared_mutex mutex_1st;
 
-/// a mutex to wait until all workers have been created
+/// a mutex to control workers
 std::shared_mutex mutex_2nd;
 
 /// a flag to control output format
@@ -86,6 +93,11 @@ bool output_format_is_text = true;
  * Global utility functions
  *################################################################################################*/
 
+/**
+ * @brief Log a message to stdout if the output mode is `text`.
+ *
+ * @param message an output message
+ */
 void
 Log(const char *message)
 {
@@ -175,8 +187,12 @@ class MwCASBench
     }
   }
 
+  /**
+   * @brief Fill MwCAS target fields with zeros.
+   *
+   */
   void
-  InitializeSharedFields()
+  InitializeTargetFields()
   {
     assert(target_fields_);
 
@@ -185,6 +201,13 @@ class MwCASBench
     }
   }
 
+  /**
+   * @brief Create a worker to run benchmark for a given target implementation.
+   *
+   * @param target a target implementation
+   * @param random_seed a random seed
+   * @return Worker* a created worker
+   */
   Worker *
   CreateWorker(  //
       const BenchTarget target,
@@ -194,7 +217,7 @@ class MwCASBench
       case kOurs:
         return new WorkerMwCAS{target_fields_, target_field_num_, mwcas_target_num_, read_ratio_,
                                exec_num_,      repeat_num_,       skew_parameter_,   random_seed};
-      case kMicrosoft:
+      case kPMwCAS:
         return new WorkerPMwCAS{*desc_pool_,       target_fields_,  target_field_num_,
                                 mwcas_target_num_, read_ratio_,     exec_num_,
                                 repeat_num_,       skew_parameter_, random_seed};
@@ -207,6 +230,13 @@ class MwCASBench
     }
   }
 
+  /**
+   * @brief Run a worker thread to measure throuput and latency.
+   *
+   * @param p a promise of a worker pointer that holds benchmark results
+   * @param target a target implementation
+   * @param random_seed a random seed
+   */
   void
   RunWorker(  //
       std::promise<Worker *> p,
@@ -215,29 +245,23 @@ class MwCASBench
   {
     // prepare a worker
     Worker *worker;
-    {
-      // create a lock to stop a main thread
+
+    {  // create a lock to stop a main thread
       const auto lock = std::shared_lock<std::shared_mutex>(mutex_2nd);
       worker = CreateWorker(target, random_seed);
+    }  // unlock to notice that this worker has been created
 
-      // unlock to notice that worker has been created
-    }
-    {
-      // wait for benchmark to be ready
+    {  // wait for benchmark to be ready
       const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st);
       if (measure_throughput_) worker->MeasureThroughput();
+    }  // unlock to notice that this worker has measured thuroughput
 
-      // unlock to notice that worker has measured thuroughput
-    }
-    {
-      // wait for benchmark to be ready
+    {  // wait for benchmark to be ready
       const auto guard = std::shared_lock<std::shared_mutex>(mutex_2nd);
       if (measure_latency_) worker->MeasureLatency();
+    }  // unlock to notice that this worker has measured latency
 
-      // unlock to notice that worker has measured latency
-    }
-    {
-      // wait for benchmark to be ready
+    {  // wait for all workers to finish
       const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st);
       worker->SortExecutionTimes();
     }
@@ -269,7 +293,7 @@ class MwCASBench
 
     // prepare shared target fields
     target_fields_ = new size_t[target_field_num_];
-    InitializeSharedFields();
+    InitializeTargetFields();
   }
 
   ~MwCASBench()
@@ -282,13 +306,20 @@ class MwCASBench
    * Public utility functions
    *##############################################################################################*/
 
+  /**
+   * @brief Run MwCAS benchmark and output results to stdout.
+   *
+   * @param target a target implementation
+   */
   void
   RunMwCASBench(const BenchTarget target)
   {
-    // prepare workers
+    /*----------------------------------------------------------------------------------------------
+     * Preparation of benchmark workers
+     *--------------------------------------------------------------------------------------------*/
     std::vector<std::future<Worker *>> futures;
-    {
-      // create a lock to stop workers from running
+
+    {  // create a lock to stop workers from running
       const auto lock = std::unique_lock<std::shared_mutex>(mutex_1st);
 
       // create workers in each thread
@@ -302,38 +333,40 @@ class MwCASBench
       // wait for all workers to be created
       const auto guard = std::unique_lock<std::shared_mutex>(mutex_2nd);
 
-      InitializeSharedFields();
+      InitializeTargetFields();
+    }  // unlock to run workers
 
-      // unlock to run workers
-    }
-
+    /*----------------------------------------------------------------------------------------------
+     * Measuring throughput
+     *--------------------------------------------------------------------------------------------*/
     if (measure_throughput_) Log("Run workers to measure throughput...");
 
-    {
-      // create a lock to stop workers from running
+    {  // create a lock to stop workers from running
       const auto lock = std::unique_lock<std::shared_mutex>(mutex_2nd);
 
       // wait for all workers to finish measuring throughput
       const auto guard = std::unique_lock<std::shared_mutex>(mutex_1st);
 
-      InitializeSharedFields();
+      InitializeTargetFields();
+    }  // unlock to run workers
 
-      // unlock to run workers
-    }
-
+    /*----------------------------------------------------------------------------------------------
+     * Measuring latency
+     *--------------------------------------------------------------------------------------------*/
     if (measure_latency_) Log("Run workers to measure latency...");
 
-    {
-      // create a lock to stop workers from running
+    {  // create a lock to stop workers from running
       const auto lock = std::unique_lock<std::shared_mutex>(mutex_1st);
 
       // wait for all workers to finish measuring latency
       const auto guard = std::unique_lock<std::shared_mutex>(mutex_2nd);
-    }
+    }  // unlock to run workers
 
+    /*----------------------------------------------------------------------------------------------
+     * Output benchmark results
+     *--------------------------------------------------------------------------------------------*/
     Log("Finish running...");
 
-    // gather results
     std::vector<Worker *> results;
     results.reserve(thread_num_);
     for (auto &&future : futures) {
@@ -416,9 +449,9 @@ main(int argc, char *argv[])
     bench.RunMwCASBench(BenchTarget::kOurs);
     Log("** Finish.");
   }
-  if (FLAGS_microsoft) {
+  if (FLAGS_pmwcas) {
     Log("** Run Microsoft's PMwCAS...");
-    bench.RunMwCASBench(BenchTarget::kMicrosoft);
+    bench.RunMwCASBench(BenchTarget::kPMwCAS);
     Log("** Finish.");
   }
   if (FLAGS_single) {
