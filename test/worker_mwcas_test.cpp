@@ -17,6 +17,7 @@ class WorkerMwCASFixture : public ::testing::Test
   static constexpr size_t kRandomSeed = 0;
 
   std::unique_ptr<size_t[]> target_fields;
+  std::unique_ptr<WorkerMwCAS> worker;
 
  protected:
   void
@@ -26,6 +27,10 @@ class WorkerMwCASFixture : public ::testing::Test
     for (size_t i = 0; i < kTargetFieldNum; ++i) {
       target_fields[i] = 0;
     }
+
+    worker =
+        std::make_unique<WorkerMwCAS>(target_fields.get(), kTargetFieldNum, kTargetNum, kReadRatio,
+                                      kOperationNum, kLoopNum, kSkewParameter, kRandomSeed);
   }
 
   void
@@ -36,24 +41,47 @@ class WorkerMwCASFixture : public ::testing::Test
 
 TEST_F(WorkerMwCASFixture, MeasureThroughput_SwapSameFields_ReadCorrectValues)
 {
-  WorkerMwCAS worker{target_fields.get(), kTargetFieldNum, kTargetNum,     kReadRatio,
-                     kOperationNum,       kLoopNum,        kSkewParameter, kRandomSeed};
-
-  worker.MeasureThroughput();
+  worker->MeasureThroughput();
 
   for (size_t i = 0; i < kTargetFieldNum; ++i) {
     EXPECT_EQ(target_fields[i], kOperationNum);
   }
 }
 
+TEST_F(WorkerMwCASFixture, MeasureThroughput_SwapSameFields_MeasureReasonableExecutionTime)
+{
+  const auto start_time = std::chrono::high_resolution_clock::now();
+  worker->MeasureThroughput();
+  const auto end_time = std::chrono::high_resolution_clock::now();
+  const auto total_time =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+
+  EXPECT_GT(worker->GetTotalExecTime(), 0);
+  EXPECT_LT(worker->GetTotalExecTime(), total_time);
+}
+
 TEST_F(WorkerMwCASFixture, MeasureLatency_SwapSameFields_ReadCorrectValues)
 {
-  WorkerMwCAS worker{target_fields.get(), kTargetFieldNum, kTargetNum,     kReadRatio,
-                     kOperationNum,       kLoopNum,        kSkewParameter, kRandomSeed};
-
-  worker.MeasureLatency();
+  worker->MeasureLatency();
 
   for (size_t i = 0; i < kTargetFieldNum; ++i) {
     EXPECT_EQ(target_fields[i], kOperationNum);
   }
+}
+
+TEST_F(WorkerMwCASFixture, MeasureLatency_SwapSameFields_MeasureReasonableLatency)
+{
+  const auto start_time = std::chrono::high_resolution_clock::now();
+  worker->MeasureLatency();
+  const auto end_time = std::chrono::high_resolution_clock::now();
+  const auto total_time =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+
+  worker->SortExecutionTimes();
+
+  EXPECT_GT(worker->GetLatency(0), 0);
+  for (size_t i = 1; i < kOperationNum; ++i) {
+    EXPECT_GE(worker->GetLatency(i), worker->GetLatency(i - 1));
+  }
+  EXPECT_LT(worker->GetLatency(kOperationNum - 1), total_time);
 }
