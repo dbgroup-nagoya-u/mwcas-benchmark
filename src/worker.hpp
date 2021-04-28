@@ -28,7 +28,7 @@ class Worker
 
   std::vector<Operation> operation_queue_;
 
-  std::vector<std::array<size_t, kMaxTargetNum>> target_fields_;
+  std::vector<std::array<size_t, kMaxTargetNum>> mwcas_targets_;
 
   size_t exec_time_nano_;
 
@@ -49,7 +49,7 @@ class Worker
 
     // generate an operation-queue for benchmark
     operation_queue_.reserve(operation_counts_);
-    target_fields_.reserve(operation_counts_);
+    mwcas_targets_.reserve(operation_counts_);
 
     std::mt19937_64 rand_engine{random_seed_};
     for (size_t i = 0; i < operation_counts_; ++i) {
@@ -59,7 +59,7 @@ class Worker
 
       // select target fields for each operation
       std::array<size_t, kMaxTargetNum> target_field;
-      for (size_t j = 0; j < target_field_num_; ++j) {
+      for (size_t j = 0; j < target_num_; ++j) {
         const auto rand_val = rand_engine() % shared_field_num_;
         const auto current_end = target_field.begin() + j;
         if (std::find(target_field.begin(), current_end, rand_val) != current_end) {
@@ -72,8 +72,8 @@ class Worker
           break;
         }
       }
-      std::sort(target_field.begin(), target_field.begin() + target_field_num_);
-      target_fields_.emplace_back(std::move(target_field));
+      std::sort(target_field.begin(), target_field.begin() + target_num_);
+      mwcas_targets_.emplace_back(std::move(target_field));
     }
   }
 
@@ -82,9 +82,9 @@ class Worker
    * Inherited member variables
    *##############################################################################################*/
 
-  size_t *shared_fields_;
+  size_t *target_fields_;
 
-  size_t target_field_num_;
+  size_t target_num_;
 
   /*################################################################################################
    * Inherited utility functions
@@ -100,9 +100,9 @@ class Worker
    *##############################################################################################*/
 
   Worker(  //
-      size_t *shared_fields,
+      size_t *target_fields,
       const size_t shared_field_num,
-      const size_t target_field_num,
+      const size_t target_num,
       const size_t read_ratio,
       const size_t operation_counts,
       const size_t loop_num,
@@ -113,8 +113,8 @@ class Worker
         random_seed_{random_seed},
         exec_time_nano_{0},
         shared_field_num_{shared_field_num},
-        shared_fields_{shared_fields},
-        target_field_num_{target_field_num}
+        target_fields_{target_fields},
+        target_num_{target_num}
   {
     PrepareBench();
   }
@@ -129,7 +129,7 @@ class Worker
   MeasureLatency()
   {
     assert(operation_queue_.size() == operation_counts_);
-    assert(target_fields_.size() == operation_counts_);
+    assert(mwcas_targets_.size() == operation_counts_);
     assert(exec_times_nano_.empty());
 
     for (size_t loop = 0; loop < loop_num_; ++loop) {
@@ -137,10 +137,10 @@ class Worker
         const auto start_time = std::chrono::high_resolution_clock::now();
         switch (operation_queue_[i]) {
           case kRead:
-            ReadMwCASField(target_fields_[i][0]);
+            ReadMwCASField(mwcas_targets_[i][0]);
             break;
           case kWrite:
-            PerformMwCAS(target_fields_[i]);
+            PerformMwCAS(mwcas_targets_[i]);
             break;
           default:
             break;
@@ -157,17 +157,17 @@ class Worker
   MeasureThroughput()
   {
     assert(operation_queue_.size() == operation_counts_);
-    assert(target_fields_.size() == operation_counts_);
+    assert(mwcas_targets_.size() == operation_counts_);
 
     const auto start_time = std::chrono::high_resolution_clock::now();
     for (size_t loop = 0; loop < loop_num_; ++loop) {
       for (size_t i = 0; i < operation_counts_; ++i) {
         switch (operation_queue_[i]) {
           case kRead:
-            ReadMwCASField(target_fields_[i][0]);
+            ReadMwCASField(mwcas_targets_[i][0]);
             break;
           case kWrite:
-            PerformMwCAS(target_fields_[i]);
+            PerformMwCAS(mwcas_targets_[i]);
             break;
           default:
             break;

@@ -25,7 +25,7 @@ class WorkerPMwCAS : public Worker
   void
   ReadMwCASField(const size_t index) override
   {
-    const auto addr = shared_fields_ + index;
+    const auto addr = target_fields_ + index;
     auto epoch = desc_pool_.GetEpoch();
     reinterpret_cast<pmwcas::MwcTargetField<size_t>*>(addr)->GetValue(epoch);
   }
@@ -37,8 +37,8 @@ class WorkerPMwCAS : public Worker
       auto desc = desc_pool_.AllocateDescriptor();
       auto epoch = desc_pool_.GetEpoch();
       epoch->Protect();
-      for (size_t i = 0; i < target_field_num_; ++i) {
-        const auto addr = shared_fields_ + target_fields[i];
+      for (size_t i = 0; i < target_num_; ++i) {
+        const auto addr = target_fields_ + target_fields[i];
         const auto old_val =
             reinterpret_cast<pmwcas::MwcTargetField<size_t>*>(addr)->GetValueProtected();
         const auto new_val = old_val + 1;
@@ -57,14 +57,14 @@ class WorkerPMwCAS : public Worker
 
   WorkerPMwCAS(  //
       pmwcas::DescriptorPool& desc_pool,
-      size_t* shared_fields,
+      size_t* target_fields,
       const size_t shared_field_num,
-      const size_t target_field_num,
+      const size_t target_num,
       const size_t read_ratio,
       const size_t operation_counts,
       const size_t loop_num,
       const size_t random_seed = 0)
-      : Worker{shared_fields,    shared_field_num, target_field_num, read_ratio,
+      : Worker{target_fields,    shared_field_num, target_num, read_ratio,
                operation_counts, loop_num,         random_seed},
         desc_pool_{desc_pool}
   {
