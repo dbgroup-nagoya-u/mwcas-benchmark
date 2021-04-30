@@ -16,7 +16,10 @@ project(
 # define source directories
 set(MWCAS_BENCH_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-# set compile options
+#--------------------------------------------------------------------------------------#
+# Set Compile Options
+#--------------------------------------------------------------------------------------#
+
 set(
   MWCAS_BENCH_MAX_FIELD_NUM
   "8"
@@ -38,19 +41,8 @@ add_subdirectory("${MWCAS_SOURCE_DIR}")
 #--------------------------------------------------------------------------------------#
 # Configure PMwCAS
 #--------------------------------------------------------------------------------------#
-configure_file(external/CMakeLists-pmwcas.txt.in pmwcas-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pmwcas-download )
-if(result)
-  message(FATAL_ERROR "CMake step for pmwcas failed: ${result}")
-endif()
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pmwcas-download )
-if(result)
-  message(FATAL_ERROR "Build step for pmwcas failed: ${result}")
-endif()
+
+set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/pmwcas")
 
 # build volatile PMwCAS
 set(PMEM_BACKEND "Volatile" CACHE STRING "" FORCE)
@@ -65,61 +57,26 @@ set(GOOGLE_FRAMEWORK OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(BUILD_APPS OFF CACHE BOOL "" FORCE)
 
-# add PMwCAS directly to our build
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/pmwcas-src
-                 ${CMAKE_CURRENT_BINARY_DIR}/pmwcas-build
-                 EXCLUDE_FROM_ALL)
-set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/pmwcas-src")
+add_subdirectory("${PMWCAS_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
 # Configure gflags
 #--------------------------------------------------------------------------------------#
-configure_file(external/CMakeLists-gflags.txt.in gflags-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gflags-download )
-if(result)
-  message(FATAL_ERROR "CMake step for gflags failed: ${result}")
-endif()
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gflags-download )
-if(result)
-  message(FATAL_ERROR "Build step for gflags failed: ${result}")
-endif()
+
+set(GFLAGS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/gflags")
 
 # prevent building unit tests
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 
-# add gflags directly to our build
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/gflags-src
-                 ${CMAKE_CURRENT_BINARY_DIR}/gflags-build
-                 EXCLUDE_FROM_ALL)
+add_subdirectory("${GFLAGS_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
 # Configure cpp-utility
 #--------------------------------------------------------------------------------------#
-configure_file(external/CMakeLists-cpp-utility.txt.in cpp-utility-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-download )
-if(result)
-  message(FATAL_ERROR "CMake step for cpp-utility failed: ${result}")
-endif()
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-download )
-if(result)
-  message(FATAL_ERROR "Build step for cpp-utility failed: ${result}")
-endif()
 
-# prevent building unit tests
-set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(CPP_UTILITY_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/cpp-utility")
 
-# add cpp-utility directly to our build
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-src
-                 ${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-build
-                 EXCLUDE_FROM_ALL)
+add_subdirectory("${CPP_UTILITY_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
 # Build Benchmark
@@ -158,8 +115,10 @@ target_link_libraries(
   cpp_utility
 )
 add_dependencies(
-  mwcas_bench
   mwcas
+  pmwcas_static
+  cpp_utility
+  gflags
 )
 
 # build unit tests if required

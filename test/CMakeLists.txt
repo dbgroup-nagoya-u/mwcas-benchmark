@@ -1,27 +1,14 @@
 #--------------------------------------------------------------------------------------#
 # Configure GoogleTest
 #--------------------------------------------------------------------------------------#
-configure_file(CMakeLists-gtest.txt.in googletest-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
-if(result)
-  message(FATAL_ERROR "CMake step for googletest failed: ${result}")
-endif()
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
-if(result)
-  message(FATAL_ERROR "Build step for googletest failed: ${result}")
-endif()
+
+set(GTEST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/googletest")
 
 # Prevent overriding the parent MWCAS_BENCH's compiler/linker settings on Windows
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 # Add googletest directly to our build. This defines the gtest and gtest_main targets.
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
-                 ${CMAKE_CURRENT_BINARY_DIR}/googletest-build
-                 EXCLUDE_FROM_ALL)
+add_subdirectory("${GTEST_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
 # Build Unit Tests
@@ -63,6 +50,10 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
   add_dependencies(
     ${MWCAS_BENCH_TEST_TARGET}
     mwcas
+    pmwcas_static
+    cpp_utility
+    gflags
+    gtest_main
   )
   add_test(NAME ${MWCAS_BENCH_TEST_TARGET} COMMAND $<TARGET_FILE:${MWCAS_BENCH_TEST_TARGET}>)
 endfunction()

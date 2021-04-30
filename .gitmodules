@@ -2,11 +2,19 @@
 	path = external/mwcas
 	url = git@github.com:dbgroup-nagoya-u/mwcas.git
 	branch = main
-[submodule "external/mwcas-with-gc"]
-	path = external/mwcas-with-gc
-	url = git@github.com:dbgroup-nagoya-u/mwcas.git
-	branch = with-gc
-[submodule "external/pmwcas-microsoft"]
-	path = external/pmwcas-microsoft
+[submodule "external/pmwcas"]
+	path = external/pmwcas
 	url = https://github.com/microsoft/pmwcas.git
+	branch = master
+[submodule "test/external/googletest"]
+	path = test/external/googletest
+	url = https://github.com/google/googletest.git
+	branch = master
+[submodule "external/cpp-utility"]
+	path = external/cpp-utility
+	url = https://github.com/dbgroup-nagoya-u/cpp-utility.git
+	branch = main
+[submodule "external/gflags"]
+	path = external/gflags
+	url = https://github.com/gflags/gflags.git
 	branch = master
