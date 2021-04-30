@@ -6,3 +6,7 @@
 	path = external/pmwcas
 	url = https://github.com/microsoft/pmwcas.git
 	branch = master
+[submodule "test/external/googletest"]
+	path = test/external/googletest
+	url = https://github.com/google/googletest.git
+	branch = master
