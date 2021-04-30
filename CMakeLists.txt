@@ -85,27 +85,11 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/gflags-src
 #--------------------------------------------------------------------------------------#
 # Configure cpp-utility
 #--------------------------------------------------------------------------------------#
-configure_file(external/CMakeLists-cpp-utility.txt.in cpp-utility-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-download )
-if(result)
-  message(FATAL_ERROR "CMake step for cpp-utility failed: ${result}")
-endif()
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-download )
-if(result)
-  message(FATAL_ERROR "Build step for cpp-utility failed: ${result}")
-endif()
 
-# prevent building unit tests
-set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(CPP_UTILITY_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/cpp-utility")
 
 # add cpp-utility directly to our build
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-src
-                 ${CMAKE_CURRENT_BINARY_DIR}/cpp-utility-build
-                 EXCLUDE_FROM_ALL)
+add_subdirectory("${CPP_UTILITY_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
 # Build Benchmark
@@ -146,6 +130,7 @@ target_link_libraries(
 add_dependencies(
   mwcas
   pmwcas_static
+  cpp_utility
 )
 
 # build unit tests if required
