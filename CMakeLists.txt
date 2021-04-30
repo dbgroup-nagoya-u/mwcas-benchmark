@@ -16,7 +16,10 @@ project(
 # define source directories
 set(MWCAS_BENCH_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-# set compile options
+#--------------------------------------------------------------------------------------#
+# Set Compile Options
+#--------------------------------------------------------------------------------------#
+
 set(
   MWCAS_BENCH_MAX_FIELD_NUM
   "8"
@@ -54,7 +57,6 @@ set(GOOGLE_FRAMEWORK OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(BUILD_APPS OFF CACHE BOOL "" FORCE)
 
-# add PMwCAS directly to our build
 add_subdirectory("${PMWCAS_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
@@ -66,7 +68,6 @@ set(GFLAGS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/gflags")
 # prevent building unit tests
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 
-# add gflags directly to our build
 add_subdirectory("${GFLAGS_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
@@ -75,7 +76,6 @@ add_subdirectory("${GFLAGS_SOURCE_DIR}")
 
 set(CPP_UTILITY_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/cpp-utility")
 
-# add cpp-utility directly to our build
 add_subdirectory("${CPP_UTILITY_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
