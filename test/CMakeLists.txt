@@ -63,6 +63,7 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
   add_dependencies(
     ${MWCAS_BENCH_TEST_TARGET}
     mwcas
+    pmwcas_static
   )
   add_test(NAME ${MWCAS_BENCH_TEST_TARGET} COMMAND $<TARGET_FILE:${MWCAS_BENCH_TEST_TARGET}>)
 endfunction()

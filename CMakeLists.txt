@@ -38,19 +38,8 @@ add_subdirectory("${MWCAS_SOURCE_DIR}")
 #--------------------------------------------------------------------------------------#
 # Configure PMwCAS
 #--------------------------------------------------------------------------------------#
-configure_file(external/CMakeLists-pmwcas.txt.in pmwcas-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pmwcas-download )
-if(result)
-  message(FATAL_ERROR "CMake step for pmwcas failed: ${result}")
-endif()
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pmwcas-download )
-if(result)
-  message(FATAL_ERROR "Build step for pmwcas failed: ${result}")
-endif()
+
+set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/pmwcas")
 
 # build volatile PMwCAS
 set(PMEM_BACKEND "Volatile" CACHE STRING "" FORCE)
@@ -66,10 +55,7 @@ set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(BUILD_APPS OFF CACHE BOOL "" FORCE)
 
 # add PMwCAS directly to our build
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/pmwcas-src
-                 ${CMAKE_CURRENT_BINARY_DIR}/pmwcas-build
-                 EXCLUDE_FROM_ALL)
-set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/pmwcas-src")
+add_subdirectory("${PMWCAS_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
 # Configure gflags
@@ -158,8 +144,8 @@ target_link_libraries(
   cpp_utility
 )
 add_dependencies(
-  mwcas_bench
   mwcas
+  pmwcas_static
 )
 
 # build unit tests if required
