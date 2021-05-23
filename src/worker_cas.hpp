@@ -20,13 +20,6 @@ class WorkerSingleCAS : public Worker
    *##############################################################################################*/
 
   void
-  ReadMwCASField(const size_t index) override
-  {
-    const auto addr = target_fields_ + index;
-    reinterpret_cast<std::atomic_size_t *>(addr)->load(std::memory_order_relaxed);
-  }
-
-  void
   PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_fields) override
   {
     for (size_t i = 0; i < mwcas_target_num_; ++i) {
@@ -47,15 +40,11 @@ class WorkerSingleCAS : public Worker
 
   WorkerSingleCAS(  //
       size_t *target_fields,
-      const size_t target_field_num,
       const size_t mwcas_target_num,
-      const size_t read_ratio,
       const size_t operation_counts,
-      const size_t loop_num,
-      const double skew_parameter,
+      ZipfGenerator &zipf_engine,
       const size_t random_seed = 0)
-      : Worker{target_fields,    target_field_num, mwcas_target_num, read_ratio,
-               operation_counts, loop_num,         skew_parameter,   random_seed}
+      : Worker{target_fields, mwcas_target_num, operation_counts, zipf_engine, random_seed}
   {
   }
 };

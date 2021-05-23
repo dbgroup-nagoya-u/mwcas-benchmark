@@ -19,7 +19,7 @@ Description:
 Arguments:
   <path_to_bench_bin>: A path to the binary file for benchmarking.
 Options:
-  -n: Only execute benchmark on the CPUs of nodes. See "man numactl" for details.
+  -N: Only execute benchmark on the CPUs of nodes. See "man numactl" for details.
   -h: Show this messsage and exit.
 EOS
   exit 1
@@ -32,7 +32,7 @@ EOS
 while getopts n:h OPT
 do
   case ${OPT} in
-    n) NUMA_NODES=${OPTARG}
+    N) NUMA_NODES=${OPTARG}
       ;;
     h) usage
       ;;
@@ -77,10 +77,9 @@ for SKEW_PARAMETER in ${SKEW_CANDIDATES}; do
         for LOOP in {1..${BENCH_REPEAT_COUNT}}; do
           echo -n "${SKEW_PARAMETER},${TARGET_NUM},${IMPL},${THREAD_NUM},"
           ${BENCH_BIN} \
-            --csv --throughput=t --latency=f ${IMPL_ARGS} \
-            --num_exec ${OPERATION_COUNT} --num_loop ${OPERATION_REPEAT_COUNT} \
-            --num_target ${TARGET_NUM} --skew_parameter ${SKEW_PARAMETER} \
-            --num_thread ${THREAD_NUM}
+            --csv --throughput=t ${IMPL_ARGS} \
+            --num_exec ${OPERATION_COUNT} --num_thread ${THREAD_NUM} \
+            --num_target ${TARGET_NUM} --skew_parameter ${SKEW_PARAMETER}
           echo ""
         done
       done

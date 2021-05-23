@@ -10,13 +10,12 @@ class WorkerMwCASFixture : public ::testing::Test
  public:
   static constexpr size_t kTargetFieldNum = 2;
   static constexpr size_t kTargetNum = 2;
-  static constexpr size_t kReadRatio = 0;
   static constexpr size_t kOperationNum = 1000;
-  static constexpr size_t kLoopNum = 1;
   static constexpr double kSkewParameter = 0;
   static constexpr size_t kRandomSeed = 0;
 
   std::unique_ptr<size_t[]> target_fields;
+  ZipfGenerator zipf_engine_;
   std::unique_ptr<WorkerMwCAS> worker;
 
  protected:
@@ -28,9 +27,10 @@ class WorkerMwCASFixture : public ::testing::Test
       target_fields[i] = 0;
     }
 
-    worker =
-        std::make_unique<WorkerMwCAS>(target_fields.get(), kTargetFieldNum, kTargetNum, kReadRatio,
-                                      kOperationNum, kLoopNum, kSkewParameter, kRandomSeed);
+    zipf_engine_ = ZipfGenerator{kTargetFieldNum, kSkewParameter};
+
+    worker = std::make_unique<WorkerMwCAS>(target_fields.get(), kTargetNum, kOperationNum,
+                                           zipf_engine_, kRandomSeed);
   }
 
   void
