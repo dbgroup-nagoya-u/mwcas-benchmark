@@ -67,14 +67,8 @@ class MwCASBench
    * Internal member variables
    *##############################################################################################*/
 
-  /// a ratio of read operations
-  const size_t read_ratio_;
-
   /// the number of MwCAS operations executed in each thread
   const size_t exec_num_;
-
-  /// the number of loops to measure performance
-  const size_t repeat_num_;
 
   /// the number of execution threads
   const size_t thread_num_;
@@ -91,11 +85,8 @@ class MwCASBench
   /// a base random seed
   const size_t random_seed_;
 
-  /// a flag to measure throughput
+  /// a flag to measure throughput (if true) or latency (if false)
   const bool measure_throughput_;
-
-  /// a flag to measure latency
-  const bool measure_latency_;
 
   /// target fields of MwCAS
   std::unique_ptr<size_t[]> target_fields_;
@@ -124,7 +115,7 @@ class MwCASBench
     }
     avg_nano_time /= thread_num_;
 
-    const size_t total_exec_num = exec_num_ * repeat_num_ * thread_num_;
+    const size_t total_exec_num = exec_num_ * thread_num_;
     const auto throughput = total_exec_num / (avg_nano_time / 1E9);
 
     if (output_format_is_text) {
@@ -148,7 +139,7 @@ class MwCASBench
     std::vector<size_t> indexes;
     indexes.reserve(thread_num_);
     for (size_t thread = 0; thread < thread_num_; ++thread) {
-      indexes.emplace_back(exec_num_ * repeat_num_ - 1);
+      indexes.emplace_back(exec_num_ - 1);
       const auto exec_time = workers[thread]->GetLatency(0);
       if (exec_time < lat_0) {
         lat_0 = exec_time;
@@ -156,7 +147,7 @@ class MwCASBench
     }
 
     // check latency with descending order
-    const size_t total_exec_num = exec_num_ * repeat_num_ * thread_num_;
+    const size_t total_exec_num = exec_num_ * thread_num_;
     for (size_t count = total_exec_num; count >= total_exec_num * 0.90; --count) {
       size_t target_thread = 0;
       auto max_exec_time = std::numeric_limits<size_t>::min();
@@ -222,15 +213,14 @@ class MwCASBench
   {
     switch (target) {
       case kOurs:
-        return new WorkerMwCAS{target_fields_.get(), mwcas_target_num_, read_ratio_, exec_num_,
-                               repeat_num_,          zipf_engine_,      random_seed};
+        return new WorkerMwCAS{target_fields_.get(), mwcas_target_num_, exec_num_, zipf_engine_,
+                               random_seed};
       case kPMwCAS:
-        return new WorkerPMwCAS{
-            *desc_pool_.get(), target_fields_.get(), mwcas_target_num_, read_ratio_,
-            exec_num_,         repeat_num_,          zipf_engine_,      random_seed};
+        return new WorkerPMwCAS{*desc_pool_.get(), target_fields_.get(), mwcas_target_num_,
+                                exec_num_,         zipf_engine_,         random_seed};
       case kSingleCAS:
-        return new WorkerSingleCAS{target_fields_.get(), mwcas_target_num_, read_ratio_, exec_num_,
-                                   repeat_num_,          zipf_engine_,      random_seed};
+        return new WorkerSingleCAS{target_fields_.get(), mwcas_target_num_, exec_num_, zipf_engine_,
+                                   random_seed};
       default:
         return nullptr;
     }
@@ -259,16 +249,15 @@ class MwCASBench
 
     {  // wait for benchmark to be ready
       const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st);
-      if (measure_throughput_) worker->MeasureThroughput();
-    }  // unlock to notice that this worker has measured thuroughput
-
-    {  // wait for benchmark to be ready
-      const auto guard = std::shared_lock<std::shared_mutex>(mutex_2nd);
-      if (measure_latency_) worker->MeasureLatency();
-    }  // unlock to notice that this worker has measured latency
+      if (measure_throughput_) {
+        worker->MeasureThroughput();
+      } else {
+        worker->MeasureLatency();
+      }
+    }  // unlock to notice that this worker has measured thuroughput/latency
 
     {  // wait for all workers to finish
-      const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st);
+      const auto guard = std::shared_lock<std::shared_mutex>(mutex_2nd);
       worker->SortExecutionTimes();
     }
 
@@ -281,26 +270,20 @@ class MwCASBench
    *##############################################################################################*/
 
   MwCASBench(  //
-      const size_t read_ratio,
       const size_t num_exec,
-      const size_t num_loop,
       const size_t num_thread,
       const size_t num_field,
       const size_t num_target,
       const double skew_parameter,
       const size_t random_seed,
-      const bool measure_throughput,
-      const bool measure_latency)
-      : read_ratio_{read_ratio},
-        exec_num_{num_exec},
-        repeat_num_{num_loop},
+      const bool measure_throughput)
+      : exec_num_{num_exec},
         thread_num_{num_thread},
         target_field_num_{num_field},
         mwcas_target_num_{num_target},
         skew_parameter_{skew_parameter},
         random_seed_{random_seed},
         measure_throughput_{measure_throughput},
-        measure_latency_{measure_latency},
         zipf_engine_{num_field, skew_parameter}
   {
     // prepare shared target fields
@@ -353,9 +336,13 @@ class MwCASBench
     }  // unlock to run workers
 
     /*----------------------------------------------------------------------------------------------
-     * Measuring throughput
+     * Measuring throughput/latency
      *--------------------------------------------------------------------------------------------*/
-    if (measure_throughput_) Log("Run workers to measure throughput...");
+    if (measure_throughput_) {
+      Log("Run workers to measure throughput...");
+    } else {
+      Log("Run workers to measure latency...");
+    }
 
     {  // create a lock to stop workers from running
       const auto lock = std::unique_lock<std::shared_mutex>(mutex_2nd);
@@ -364,18 +351,6 @@ class MwCASBench
       const auto guard = std::unique_lock<std::shared_mutex>(mutex_1st);
 
       InitializeTargetFields();
-    }  // unlock to run workers
-
-    /*----------------------------------------------------------------------------------------------
-     * Measuring latency
-     *--------------------------------------------------------------------------------------------*/
-    if (measure_latency_) Log("Run workers to measure latency...");
-
-    {  // create a lock to stop workers from running
-      const auto lock = std::unique_lock<std::shared_mutex>(mutex_1st);
-
-      // wait for all workers to finish measuring latency
-      const auto guard = std::unique_lock<std::shared_mutex>(mutex_2nd);
     }  // unlock to run workers
 
     /*----------------------------------------------------------------------------------------------
@@ -389,8 +364,11 @@ class MwCASBench
       results.emplace_back(future.get());
     }
 
-    if (measure_throughput_) LogThroughput(results);
-    if (measure_latency_) LogLatency(results);
+    if (measure_throughput_) {
+      LogThroughput(results);
+    } else {
+      LogLatency(results);
+    }
 
     for (auto &&worker : results) {
       delete worker;

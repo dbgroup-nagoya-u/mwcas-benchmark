@@ -60,11 +60,8 @@ ValidateRandomSeed([[maybe_unused]] const char *flagname, const std::string &see
  * CLI arguments
  *################################################################################################*/
 
-DEFINE_uint64(read_ratio, 0, "The ratio of MwCAS read operations [%]");
 DEFINE_uint64(num_exec, 10000, "The number of MwCAS operations executed in each thread");
 DEFINE_validator(num_exec, &ValidateNonZero);
-DEFINE_uint64(num_loop, 1, "The number of loops to measure performance");
-DEFINE_validator(num_loop, &ValidateNonZero);
 DEFINE_uint64(num_thread, 1, "The number of execution threads");
 DEFINE_validator(num_thread, &ValidateNonZero);
 DEFINE_uint64(num_field, 10000, "The number of total target fields");
@@ -79,8 +76,7 @@ DEFINE_bool(ours, true, "Use MwCAS library (DB Group @ Nagoya Univ.) as a benchm
 DEFINE_bool(pmwcas, true, "Use PMwCAS library (Microsoft) as a benchmark target");
 DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
 DEFINE_bool(csv, false, "Output benchmark results as CSV format");
-DEFINE_bool(throughput, true, "Measure throughput");
-DEFINE_bool(latency, true, "Measure latency");
+DEFINE_bool(throughput, true, "true: measure throughput, false: measure latency");
 
 /*##################################################################################################
  * Main function
@@ -96,9 +92,8 @@ main(int argc, char *argv[])
   const auto random_seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
 
   Log("=== Start MwCAS Benchmark ===");
-  auto bench = MwCASBench{
-      FLAGS_read_ratio, FLAGS_num_exec,       FLAGS_num_loop, FLAGS_num_thread, FLAGS_num_field,
-      FLAGS_num_target, FLAGS_skew_parameter, random_seed,    FLAGS_throughput, FLAGS_latency};
+  auto bench = MwCASBench{FLAGS_num_exec,       FLAGS_num_thread, FLAGS_num_field, FLAGS_num_target,
+                          FLAGS_skew_parameter, random_seed,      FLAGS_throughput};
   if (FLAGS_ours) {
     Log("** Run our MwCAS...");
     bench.RunMwCASBench(BenchTarget::kOurs);

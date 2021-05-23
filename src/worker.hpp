@@ -25,20 +25,11 @@ class Worker
    * Internal member variables
    *##############################################################################################*/
 
-  /// a ratio of read operations
-  size_t read_ratio_;
-
   /// the number of MwCAS operations executed in each thread
   size_t operation_counts_;
 
-  /// the number of loops to measure performance
-  size_t repeat_num_;
-
   /// a random seed
   size_t random_seed_;
-
-  /// a queue that holds read/write operations
-  std::vector<Operation> operation_queue_;
 
   /// MwCAS target filed IDs for each operation
   std::vector<std::array<size_t, kMaxTargetNum>> mwcas_targets_;
@@ -66,18 +57,13 @@ class Worker
     // initialize execution time
     exec_time_nano_ = 0;
     exec_times_nano_.clear();
-    exec_times_nano_.reserve(operation_counts_ * repeat_num_);
+    exec_times_nano_.reserve(operation_counts_);
 
     // generate an operation-queue for benchmark
-    operation_queue_.reserve(operation_counts_);
     mwcas_targets_.reserve(operation_counts_);
 
     std::mt19937_64 rand_engine{random_seed_};
     for (size_t i = 0; i < operation_counts_; ++i) {
-      // select i-th operation
-      const auto ops = (rand_engine() % 100 < read_ratio_) ? Operation::kRead : Operation::kWrite;
-      operation_queue_.emplace_back(ops);
-
       // select target fields for i-th operation
       std::array<size_t, kMaxTargetNum> mwcas_target;
       for (size_t j = 0; j < mwcas_target_num_; ++j) {
@@ -88,10 +74,6 @@ class Worker
         } while (std::find(mwcas_target.begin(), current_end, field_id) != current_end);
 
         mwcas_target[j] = field_id;
-        if (operation_queue_[i] == Operation::kRead) {
-          // a read operation requires only one target
-          break;
-        }
       }
 
       // sort MwCAS targets to prevent deadlocks
@@ -116,13 +98,6 @@ class Worker
    *##############################################################################################*/
 
   /**
-   * @brief Read a MwCAS target field based on its implementation.
-   *
-   * @param index a target index of a read operation
-   */
-  virtual void ReadMwCASField(const size_t index) = 0;
-
-  /**
    * @brief Perform a MwCAS operation based on its implementation.
    *
    * @param target_indexes target indexes of a MwCAS operation
@@ -139,23 +114,17 @@ class Worker
    *
    * @param target_fields a head of MwCAS target fields
    * @param mwcas_target_num the number of MwCAS targets for each operation
-   * @param read_ratio a ratio of read operations
    * @param operation_counts the number of MwCAS operations executed in each thread
-   * @param repeat_num the number of loops to measure performance
    * @param zipf_engine a random engine according to Zipf's law
    * @param random_seed a random seed
    */
   Worker(  //
       size_t *target_fields,
       const size_t mwcas_target_num,
-      const size_t read_ratio,
       const size_t operation_counts,
-      const size_t repeat_num,
       ZipfGenerator &zipf_engine,
       const size_t random_seed = 0)
-      : read_ratio_{read_ratio},
-        operation_counts_{operation_counts},
-        repeat_num_{repeat_num},
+      : operation_counts_{operation_counts},
         random_seed_{random_seed},
         exec_time_nano_{0},
         zipf_engine_{zipf_engine},
@@ -182,24 +151,13 @@ class Worker
     assert(mwcas_targets_.size() == operation_counts_);
     assert(exec_times_nano_.empty());
 
-    for (size_t loop = 0; loop < repeat_num_; ++loop) {
-      for (size_t i = 0; i < operation_counts_; ++i) {
-        const auto start_time = std::chrono::high_resolution_clock::now();
-        switch (operation_queue_[i]) {
-          case kRead:
-            ReadMwCASField(mwcas_targets_[i][0]);
-            break;
-          case kWrite:
-            PerformMwCAS(mwcas_targets_[i]);
-            break;
-          default:
-            break;
-        }
-        const auto end_time = std::chrono::high_resolution_clock::now();
-        const auto exec_time =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
-        exec_times_nano_.emplace_back(exec_time);
-      }
+    for (size_t i = 0; i < operation_counts_; ++i) {
+      const auto start_time = std::chrono::high_resolution_clock::now();
+      PerformMwCAS(mwcas_targets_[i]);
+      const auto end_time = std::chrono::high_resolution_clock::now();
+      const auto exec_time =
+          std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+      exec_times_nano_.emplace_back(exec_time);
     }
   }
 
@@ -214,19 +172,8 @@ class Worker
     assert(mwcas_targets_.size() == operation_counts_);
 
     const auto start_time = std::chrono::high_resolution_clock::now();
-    for (size_t loop = 0; loop < repeat_num_; ++loop) {
-      for (size_t i = 0; i < operation_counts_; ++i) {
-        switch (operation_queue_[i]) {
-          case kRead:
-            ReadMwCASField(mwcas_targets_[i][0]);
-            break;
-          case kWrite:
-            PerformMwCAS(mwcas_targets_[i]);
-            break;
-          default:
-            break;
-        }
-      }
+    for (size_t i = 0; i < operation_counts_; ++i) {
+      PerformMwCAS(mwcas_targets_[i]);
     }
 
     const auto end_time = std::chrono::high_resolution_clock::now();
