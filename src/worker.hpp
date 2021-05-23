@@ -49,11 +49,8 @@ class Worker
   /// execution time for each operation [ns]
   std::vector<size_t> exec_times_nano_;
 
-  /// the total number of MwCAS target fields
-  size_t target_filed_num_;
-
-  /// a Zipf skew parameter
-  double skew_parameter_;
+  /// a random engine according to Zipf's law
+  ZipfGenerator &zipf_engine_;
 
   /*################################################################################################
    * Internal utility functions
@@ -76,7 +73,6 @@ class Worker
     mwcas_targets_.reserve(operation_counts_);
 
     std::mt19937_64 rand_engine{random_seed_};
-    ZipfGenerator zipf_engine{target_filed_num_, skew_parameter_, random_seed_};
     for (size_t i = 0; i < operation_counts_; ++i) {
       // select i-th operation
       const auto ops = (rand_engine() % 100 < read_ratio_) ? Operation::kRead : Operation::kWrite;
@@ -88,7 +84,7 @@ class Worker
         const auto current_end = mwcas_target.begin() + j;
         size_t field_id;
         do {
-          field_id = zipf_engine();
+          field_id = zipf_engine_(rand_engine);
         } while (std::find(mwcas_target.begin(), current_end, field_id) != current_end);
 
         mwcas_target[j] = field_id;
@@ -142,30 +138,27 @@ class Worker
    * @brief Construct a new MwCAS Worker object.
    *
    * @param target_fields a head of MwCAS target fields
-   * @param target_field_num the total number of MwCAS target fields
    * @param mwcas_target_num the number of MwCAS targets for each operation
    * @param read_ratio a ratio of read operations
    * @param operation_counts the number of MwCAS operations executed in each thread
    * @param repeat_num the number of loops to measure performance
-   * @param skew_parameter a Zipf skew parameter
+   * @param zipf_engine a random engine according to Zipf's law
    * @param random_seed a random seed
    */
   Worker(  //
       size_t *target_fields,
-      const size_t target_field_num,
       const size_t mwcas_target_num,
       const size_t read_ratio,
       const size_t operation_counts,
       const size_t repeat_num,
-      const double skew_parameter,
+      ZipfGenerator &zipf_engine,
       const size_t random_seed = 0)
       : read_ratio_{read_ratio},
         operation_counts_{operation_counts},
         repeat_num_{repeat_num},
         random_seed_{random_seed},
         exec_time_nano_{0},
-        target_filed_num_{target_field_num},
-        skew_parameter_{skew_parameter},
+        zipf_engine_{zipf_engine},
         target_fields_{target_fields},
         mwcas_target_num_{mwcas_target_num}
   {

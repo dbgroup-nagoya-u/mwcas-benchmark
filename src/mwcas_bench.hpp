@@ -100,6 +100,9 @@ class MwCASBench
   /// target fields of MwCAS
   std::unique_ptr<size_t[]> target_fields_;
 
+  /// a random engine according to Zipf's law
+  ZipfGenerator zipf_engine_;
+
   /// PMwCAS descriptor pool
   std::unique_ptr<pmwcas::DescriptorPool> desc_pool_;
 
@@ -219,17 +222,15 @@ class MwCASBench
   {
     switch (target) {
       case kOurs:
-        return new WorkerMwCAS{target_fields_.get(), target_field_num_, mwcas_target_num_,
-                               read_ratio_,          exec_num_,         repeat_num_,
-                               skew_parameter_,      random_seed};
+        return new WorkerMwCAS{target_fields_.get(), mwcas_target_num_, read_ratio_, exec_num_,
+                               repeat_num_,          zipf_engine_,      random_seed};
       case kPMwCAS:
-        return new WorkerPMwCAS{*desc_pool_.get(), target_fields_.get(), target_field_num_,
-                                mwcas_target_num_, read_ratio_,          exec_num_,
-                                repeat_num_,       skew_parameter_,      random_seed};
+        return new WorkerPMwCAS{
+            *desc_pool_.get(), target_fields_.get(), mwcas_target_num_, read_ratio_,
+            exec_num_,         repeat_num_,          zipf_engine_,      random_seed};
       case kSingleCAS:
-        return new WorkerSingleCAS{target_fields_.get(), target_field_num_, mwcas_target_num_,
-                                   read_ratio_,          exec_num_,         repeat_num_,
-                                   skew_parameter_,      random_seed};
+        return new WorkerSingleCAS{target_fields_.get(), mwcas_target_num_, read_ratio_, exec_num_,
+                                   repeat_num_,          zipf_engine_,      random_seed};
       default:
         return nullptr;
     }
@@ -299,7 +300,8 @@ class MwCASBench
         skew_parameter_{skew_parameter},
         random_seed_{random_seed},
         measure_throughput_{measure_throughput},
-        measure_latency_{measure_latency}
+        measure_latency_{measure_latency},
+        zipf_engine_{num_field, skew_parameter}
   {
     // prepare shared target fields
     target_fields_ = std::make_unique<size_t[]>(target_field_num_);
