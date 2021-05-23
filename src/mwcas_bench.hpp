@@ -67,13 +67,13 @@ class MwCASBench
    * Internal member variables
    *##############################################################################################*/
 
-  /// the number of MwCAS operations executed in each thread
+  /// the total number of MwCAS operations
   const size_t exec_num_;
 
   /// the number of execution threads
   const size_t thread_num_;
 
-  /// the number of total target fields
+  /// the total number of target fields
   const size_t target_field_num_;
 
   /// the number of target fields for each MwCAS
@@ -115,8 +115,7 @@ class MwCASBench
     }
     avg_nano_time /= thread_num_;
 
-    const size_t total_exec_num = exec_num_ * thread_num_;
-    const auto throughput = total_exec_num / (avg_nano_time / 1E9);
+    const auto throughput = exec_num_ / (avg_nano_time / 1E9);
 
     if (output_format_is_text) {
       std::cout << "Throughput [Ops/s]: " << throughput << std::endl;
@@ -139,7 +138,7 @@ class MwCASBench
     std::vector<size_t> indexes;
     indexes.reserve(thread_num_);
     for (size_t thread = 0; thread < thread_num_; ++thread) {
-      indexes.emplace_back(exec_num_ - 1);
+      indexes.emplace_back(workers[thread]->GetOperationCount() - 1);
       const auto exec_time = workers[thread]->GetLatency(0);
       if (exec_time < lat_0) {
         lat_0 = exec_time;
@@ -147,8 +146,7 @@ class MwCASBench
     }
 
     // check latency with descending order
-    const size_t total_exec_num = exec_num_ * thread_num_;
-    for (size_t count = total_exec_num; count >= total_exec_num * 0.90; --count) {
+    for (size_t count = exec_num_; count >= exec_num_ * 0.90; --count) {
       size_t target_thread = 0;
       auto max_exec_time = std::numeric_limits<size_t>::min();
       for (size_t thread = 0; thread < thread_num_; ++thread) {
@@ -160,13 +158,13 @@ class MwCASBench
       }
 
       // if `count` reaches target percentiles, store its latency
-      if (count == total_exec_num) {
+      if (count == exec_num_) {
         lat_100 = max_exec_time;
-      } else if (count == static_cast<size_t>(total_exec_num * 0.99)) {
+      } else if (count == static_cast<size_t>(exec_num_ * 0.99)) {
         lat_99 = max_exec_time;
-      } else if (count == static_cast<size_t>(total_exec_num * 0.95)) {
+      } else if (count == static_cast<size_t>(exec_num_ * 0.95)) {
         lat_95 = max_exec_time;
-      } else if (count == static_cast<size_t>(total_exec_num * 0.90)) {
+      } else if (count == static_cast<size_t>(exec_num_ * 0.90)) {
         lat_90 = max_exec_time;
       }
 
@@ -209,17 +207,18 @@ class MwCASBench
   Worker *
   CreateWorker(  //
       const BenchTarget target,
+      const size_t exec_num,
       const size_t random_seed)
   {
     switch (target) {
       case kOurs:
-        return new WorkerMwCAS{target_fields_.get(), mwcas_target_num_, exec_num_, zipf_engine_,
+        return new WorkerMwCAS{target_fields_.get(), mwcas_target_num_, exec_num, zipf_engine_,
                                random_seed};
       case kPMwCAS:
         return new WorkerPMwCAS{*desc_pool_.get(), target_fields_.get(), mwcas_target_num_,
-                                exec_num_,         zipf_engine_,         random_seed};
+                                exec_num,          zipf_engine_,         random_seed};
       case kSingleCAS:
-        return new WorkerSingleCAS{target_fields_.get(), mwcas_target_num_, exec_num_, zipf_engine_,
+        return new WorkerSingleCAS{target_fields_.get(), mwcas_target_num_, exec_num, zipf_engine_,
                                    random_seed};
       default:
         return nullptr;
@@ -237,6 +236,7 @@ class MwCASBench
   RunWorker(  //
       std::promise<Worker *> p,
       const BenchTarget target,
+      const size_t exec_num,
       const size_t random_seed)
   {
     // prepare a worker
@@ -244,7 +244,7 @@ class MwCASBench
 
     {  // create a lock to stop a main thread
       const auto lock = std::shared_lock<std::shared_mutex>(mutex_2nd);
-      worker = CreateWorker(target, random_seed);
+      worker = CreateWorker(target, exec_num, random_seed);
     }  // unlock to notice that this worker has been created
 
     {  // wait for benchmark to be ready
@@ -323,11 +323,19 @@ class MwCASBench
 
       // create workers in each thread
       std::mt19937_64 rand_engine{random_seed_};
-      for (size_t index = 0; index < thread_num_; ++index) {
+      size_t sum_exec_num = 0;
+      for (size_t i = 0; i < thread_num_; ++i) {
         std::promise<Worker *> p;
         futures.emplace_back(p.get_future());
-        std::thread{&MwCASBench::RunWorker, this, std::move(p), target, rand_engine()}.detach();
+
+        const size_t exec_num =
+            (i < thread_num_ - 1) ? exec_num_ / thread_num_ : exec_num_ - sum_exec_num;
+        std::thread t{&MwCASBench::RunWorker, this, std::move(p), target, exec_num, rand_engine()};
+        t.detach();
+
+        sum_exec_num += exec_num;
       }
+      assert(sum_exec_num == exec_num_);
 
       // wait for all workers to be created
       const auto guard = std::unique_lock<std::shared_mutex>(mutex_2nd);
@@ -349,8 +357,6 @@ class MwCASBench
 
       // wait for all workers to finish measuring throughput
       const auto guard = std::unique_lock<std::shared_mutex>(mutex_1st);
-
-      InitializeTargetFields();
     }  // unlock to run workers
 
     /*----------------------------------------------------------------------------------------------

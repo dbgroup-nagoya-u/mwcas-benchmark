@@ -60,11 +60,11 @@ ValidateRandomSeed([[maybe_unused]] const char *flagname, const std::string &see
  * CLI arguments
  *################################################################################################*/
 
-DEFINE_uint64(num_exec, 10000, "The number of MwCAS operations executed in each thread");
+DEFINE_uint64(num_exec, 10000, "The total number of MwCAS operations");
 DEFINE_validator(num_exec, &ValidateNonZero);
 DEFINE_uint64(num_thread, 1, "The number of execution threads");
 DEFINE_validator(num_thread, &ValidateNonZero);
-DEFINE_uint64(num_field, 10000, "The number of total target fields");
+DEFINE_uint64(num_field, 10000, "The total number of target fields");
 DEFINE_validator(num_field, &ValidateNonZero);
 DEFINE_uint64(num_target, 2, "The number of target fields for each MwCAS");
 DEFINE_validator(num_target, &ValidateTargetNum);

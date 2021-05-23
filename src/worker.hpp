@@ -209,4 +209,13 @@ class Worker
   {
     return exec_time_nano_;
   }
+
+  /**
+   * @return size_t the number of executed MwCAS operations
+   */
+  size_t
+  GetOperationCount() const
+  {
+    return operation_counts_;
+  }
 };
