@@ -40,12 +40,12 @@ class DequeMwCAS : public Deque
   PushFront(T&& x) override
   {
     auto old_node = ReadMwCASField<Node*>(&front_.next);
-    auto new_node = new Node{T{x}, &front_, old_node};
+    auto new_node = new Node{T{x}, old_node, &front_};
 
     do {
       MwCASDescriptor desc{};
       desc.AddMwCASTarget(&front_.next, old_node, new_node);
-      desc.AddMwCASTarget(&old_node->prev, &front_, new_node);
+      desc.AddMwCASTarget(&(old_node->prev), &front_, new_node);
 
       if (desc.MwCAS()) {
         break;
@@ -60,12 +60,12 @@ class DequeMwCAS : public Deque
   PushBack(T&& x) override
   {
     auto old_node = ReadMwCASField<Node*>(&back_.prev);
-    auto new_node = new Node{T{x}, old_node, &back_};
+    auto new_node = new Node{T{x}, &back_, old_node};
 
     do {
       MwCASDescriptor desc{};
       desc.AddMwCASTarget(&back_.prev, old_node, new_node);
-      desc.AddMwCASTarget(&old_node->next, &back_, new_node);
+      desc.AddMwCASTarget(&(old_node->next), &back_, new_node);
 
       if (desc.MwCAS()) {
         break;

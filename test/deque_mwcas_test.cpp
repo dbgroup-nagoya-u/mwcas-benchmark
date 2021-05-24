@@ -29,3 +29,15 @@ TEST_F(DequeMwCASFixture, Construct_Default_DequeCorrectlyInitialized)
 {
   EXPECT_TRUE(deque_.Empty());
 }
+
+TEST_F(DequeMwCASFixture, PushFront_OneItem_DequeNotEmpty)
+{
+  deque_.PushFront(0);
+  EXPECT_FALSE(deque_.Empty());
+}
+
+TEST_F(DequeMwCASFixture, PushBack_OneItem_DequeNotEmpty)
+{
+  deque_.PushBack(0);
+  EXPECT_FALSE(deque_.Empty());
+}
