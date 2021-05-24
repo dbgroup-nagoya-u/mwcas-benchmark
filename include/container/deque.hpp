@@ -51,6 +51,10 @@ class Deque
 
   virtual void PushBack(T&& x) = 0;
 
+  virtual void PopFront() = 0;
+
+  virtual void PopBack() = 0;
+
   virtual bool Empty() = 0;
 };
 

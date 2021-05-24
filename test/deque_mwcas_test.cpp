@@ -30,14 +30,42 @@ TEST_F(DequeMwCASFixture, Construct_Default_DequeCorrectlyInitialized)
   EXPECT_TRUE(deque_.Empty());
 }
 
-TEST_F(DequeMwCASFixture, PushFront_OneItem_DequeNotEmpty)
+TEST_F(DequeMwCASFixture, PushFront_OneItem_DequeIsNotEmpty)
 {
   deque_.PushFront(0);
   EXPECT_FALSE(deque_.Empty());
 }
 
-TEST_F(DequeMwCASFixture, PushBack_OneItem_DequeNotEmpty)
+TEST_F(DequeMwCASFixture, PushBack_OneItem_DequeIsNotEmpty)
 {
   deque_.PushBack(0);
   EXPECT_FALSE(deque_.Empty());
+}
+
+TEST_F(DequeMwCASFixture, PopFront_AfterPushFront_DequeIsEmpty)
+{
+  deque_.PushFront(0);
+  deque_.PopFront();
+  EXPECT_TRUE(deque_.Empty());
+}
+
+TEST_F(DequeMwCASFixture, PopFront_AfterPushBack_DequeIsEmpty)
+{
+  deque_.PushBack(0);
+  deque_.PopFront();
+  EXPECT_TRUE(deque_.Empty());
+}
+
+TEST_F(DequeMwCASFixture, PopBack_AfterPushFront_DequeIsEmpty)
+{
+  deque_.PushFront(0);
+  deque_.PopBack();
+  EXPECT_TRUE(deque_.Empty());
+}
+
+TEST_F(DequeMwCASFixture, PopBack_AfterPushBack_DequeIsEmpty)
+{
+  deque_.PushBack(0);
+  deque_.PopBack();
+  EXPECT_TRUE(deque_.Empty());
 }

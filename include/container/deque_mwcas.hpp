@@ -73,7 +73,49 @@ class DequeMwCAS : public Deque
         old_node = ReadMwCASField<Node*>(&back_.prev);
         new_node->prev = old_node;
       }
-    } while (true);
+    }
+  }
+
+  void
+  PopFront() override
+  {
+    auto old_node = ReadMwCASField<Node*>(&front_.next);
+    auto new_node = ReadMwCASField<Node*>(&(old_node->next));
+
+    while (new_node != nullptr) {  // if new_node is null, old_node is end of a deque
+      MwCASDescriptor desc{};
+      desc.AddMwCASTarget(&front_.next, old_node, new_node);
+      desc.AddMwCASTarget(&(new_node->prev), old_node, &front_);
+
+      if (desc.MwCAS()) {
+        delete old_node;
+        break;
+      } else {
+        old_node = ReadMwCASField<Node*>(&front_.next);
+        new_node = ReadMwCASField<Node*>(&(old_node->next));
+      }
+    }
+  }
+
+  void
+  PopBack() override
+  {
+    auto old_node = ReadMwCASField<Node*>(&back_.prev);
+    auto new_node = ReadMwCASField<Node*>(&(old_node->prev));
+
+    while (new_node != nullptr) {  // if new_node is null, old_node is end of a deque
+      MwCASDescriptor desc{};
+      desc.AddMwCASTarget(&(new_node->next), old_node, &back_);
+      desc.AddMwCASTarget(&back_.prev, old_node, new_node);
+
+      if (desc.MwCAS()) {
+        delete old_node;
+        break;
+      } else {
+        old_node = ReadMwCASField<Node*>(&back_.prev);
+        new_node = ReadMwCASField<Node*>(&(old_node->prev));
+      }
+    }
   }
 
   bool
