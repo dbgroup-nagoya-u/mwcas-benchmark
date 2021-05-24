@@ -42,7 +42,7 @@ class DequeMwCAS : public Deque
     auto old_node = ReadMwCASField<Node*>(&front_.next);
     auto new_node = new Node{T{x}, old_node, &front_};
 
-    do {
+    while (true) {
       MwCASDescriptor desc{};
       desc.AddMwCASTarget(&front_.next, old_node, new_node);
       desc.AddMwCASTarget(&(old_node->prev), &front_, new_node);
@@ -53,7 +53,7 @@ class DequeMwCAS : public Deque
         old_node = ReadMwCASField<Node*>(&front_.next);
         new_node->next = old_node;
       }
-    } while (true);
+    }
   }
 
   void
@@ -62,10 +62,10 @@ class DequeMwCAS : public Deque
     auto old_node = ReadMwCASField<Node*>(&back_.prev);
     auto new_node = new Node{T{x}, &back_, old_node};
 
-    do {
+    while (true) {
       MwCASDescriptor desc{};
-      desc.AddMwCASTarget(&back_.prev, old_node, new_node);
       desc.AddMwCASTarget(&(old_node->next), &back_, new_node);
+      desc.AddMwCASTarget(&back_.prev, old_node, new_node);
 
       if (desc.MwCAS()) {
         break;
