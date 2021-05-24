@@ -43,13 +43,13 @@ class List
    * Public utility functions
    *##############################################################################################*/
 
-  virtual T Front() = delete;
+  virtual T Front() = 0;
 
-  virtual T Back() = delete;
+  virtual T Back() = 0;
 
-  virtual void PushFront(T&& x) = delete;
+  virtual void PushFront(T&& x) = 0;
 
-  virtual void PushBack(T&& x) = delete;
+  virtual void PushBack(T&& x) = 0;
 };
 
 }  // namespace dbgroup::container

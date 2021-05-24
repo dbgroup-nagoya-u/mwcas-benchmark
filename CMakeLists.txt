@@ -14,7 +14,7 @@ project(
 )
 
 # define source directories
-set(MWCAS_BENCH_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+set(MWCAS_BENCH_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
 # Set Compile Options
@@ -85,7 +85,7 @@ add_subdirectory("${CPP_UTILITY_SOURCE_DIR}")
 # build executable
 add_executable(
   mwcas_bench
-  "${MWCAS_BENCH_SOURCE_DIR}/mwcas_bench.cpp"
+  "${MWCAS_BENCH_SOURCE_DIR}/src/mwcas_bench.cpp"
 )
 target_compile_features(mwcas_bench PRIVATE "cxx_std_17")
 target_compile_options(
