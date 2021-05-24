@@ -27,7 +27,7 @@ class Deque
    * Public constructors/destructors
    *##############################################################################################*/
 
-  Deque() : front_{T{}, &back_, nullptr}, back_{T{}, &front_, nullptr} {}
+  Deque() : front_{T{}, &back_, nullptr}, back_{T{}, nullptr, &front_} {}
 
   virtual ~Deque()
   {
@@ -50,6 +50,8 @@ class Deque
   virtual void PushFront(T&& x) = 0;
 
   virtual void PushBack(T&& x) = 0;
+
+  virtual bool Empty() = 0;
 };
 
 }  // namespace dbgroup::container

@@ -7,7 +7,12 @@
 
 class DequeMwCASFixture : public ::testing::Test
 {
+  using Key = uint64_t;
+  using Deque_t = ::dbgroup::container::DequeMwCAS;
+
  public:
+  Deque_t deque_;
+
  protected:
   void
   SetUp() override
@@ -20,4 +25,7 @@ class DequeMwCASFixture : public ::testing::Test
   }
 };
 
-TEST_F(DequeMwCASFixture, MeasureThroughput_SwapSameFields_ReadCorrectValues) {}
+TEST_F(DequeMwCASFixture, Construct_Default_DequeCorrectlyInitialized)
+{
+  EXPECT_TRUE(deque_.Empty());
+}

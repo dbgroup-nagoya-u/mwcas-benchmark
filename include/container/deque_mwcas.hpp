@@ -13,6 +13,7 @@ using ::dbgroup::atomic::mwcas::ReadMwCASField;
 
 class DequeMwCAS : public Deque
 {
+ public:
   /*################################################################################################
    * Public constructors/destructors
    *##############################################################################################*/
@@ -26,19 +27,19 @@ class DequeMwCAS : public Deque
   T
   Front() override
   {
-    return ReadMwCASField<Node*>(front_.next)->elem;
+    return ReadMwCASField<Node*>(&front_.next)->elem;
   }
 
   T
   Back() override
   {
-    return ReadMwCASField<Node*>(back_.prev)->elem;
+    return ReadMwCASField<Node*>(&back_.prev)->elem;
   }
 
   void
   PushFront(T&& x) override
   {
-    auto old_node = ReadMwCASField<Node*>(front_.next);
+    auto old_node = ReadMwCASField<Node*>(&front_.next);
     auto new_node = new Node{T{x}, &front_, old_node};
 
     do {
@@ -49,7 +50,7 @@ class DequeMwCAS : public Deque
       if (desc.MwCAS()) {
         break;
       } else {
-        old_node = ReadMwCASField<Node*>(front_.next);
+        old_node = ReadMwCASField<Node*>(&front_.next);
         new_node->next = old_node;
       }
     } while (true);
@@ -58,7 +59,7 @@ class DequeMwCAS : public Deque
   void
   PushBack(T&& x) override
   {
-    auto old_node = ReadMwCASField<Node*>(back_.prev);
+    auto old_node = ReadMwCASField<Node*>(&back_.prev);
     auto new_node = new Node{T{x}, old_node, &back_};
 
     do {
@@ -69,10 +70,17 @@ class DequeMwCAS : public Deque
       if (desc.MwCAS()) {
         break;
       } else {
-        old_node = ReadMwCASField<Node*>(back_.prev);
+        old_node = ReadMwCASField<Node*>(&back_.prev);
         new_node->prev = old_node;
       }
     } while (true);
+  }
+
+  bool
+  Empty() override
+  {
+    const auto next_node = ReadMwCASField<Node*>(&front_.next);
+    return ReadMwCASField<Node*>(&(next_node->next)) == nullptr;
   }
 };
 
