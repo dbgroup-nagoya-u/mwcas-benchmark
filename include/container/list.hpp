@@ -4,25 +4,40 @@
 #pragma once
 
 #include "common.hpp"
-#include "node.hpp"
 
 namespace dbgroup::container
 {
 class List
 {
  protected:
-  list::Node front_;
+  struct Node {
+    const T elem = T{};
 
-  list::Node back_;
+    Node* next = nullptr;
+
+    Node* prev = nullptr;
+  };
+
+  Node front_;
+
+  Node back_;
 
  public:
   /*################################################################################################
    * Public constructors/destructors
    *##############################################################################################*/
 
-  List() {}
+  List() : front_{T{}, &back_, nullptr}, back_{T{}, &front_, nullptr} {}
 
-  virtual ~List() = default;
+  virtual ~List()
+  {
+    auto next = front_.next;
+    while (next->next != nullptr) {
+      auto prev = next;
+      next = next->next;
+      delete prev;
+    }
+  }
 
   /*################################################################################################
    * Public utility functions
