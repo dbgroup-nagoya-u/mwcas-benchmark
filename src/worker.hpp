@@ -147,7 +147,6 @@ class Worker
   void
   MeasureLatency()
   {
-    assert(operation_queue_.size() == operation_counts_);
     assert(mwcas_targets_.size() == operation_counts_);
     assert(exec_times_nano_.empty());
 
@@ -168,7 +167,6 @@ class Worker
   void
   MeasureThroughput()
   {
-    assert(operation_queue_.size() == operation_counts_);
     assert(mwcas_targets_.size() == operation_counts_);
 
     const auto start_time = std::chrono::high_resolution_clock::now();
