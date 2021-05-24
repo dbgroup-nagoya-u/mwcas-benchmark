@@ -5,25 +5,27 @@
 
 #include "common.hpp"
 
-namespace dbgroup::container
+namespace dbgroup::container::list
 {
-class ListElement
+class Node
 {
  private:
   const T elem_;
 
-  ListElement *next_;
+  Node *next_;
 
-  ListElement *prev_;
+  Node *prev_;
 
  public:
   /*################################################################################################
    * Public constructors/destructors
    *##############################################################################################*/
 
-  explicit ListElement(const T &&x) : elem_{x}, next_{nullptr}, prev_{nullptr} {}
+  Node() : elem_{}, next_{nullptr}, prev_{nullptr} {}
 
-  ~ListElement() = default;
+  explicit Node(const T &&x) : elem_{x}, next_{nullptr}, prev_{nullptr} {}
+
+  ~Node() = default;
 
   /*################################################################################################
    * Public getters/setters
@@ -35,17 +37,17 @@ class ListElement
     return elem_;
   }
 
-  ListElement *
+  Node *
   Next() const
   {
     return next_;
   }
 
-  ListElement *
+  Node *
   Prev() const
   {
     return prev_;
   }
 };
 
-}  // namespace dbgroup::container
+}  // namespace dbgroup::container::list

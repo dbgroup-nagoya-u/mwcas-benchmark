@@ -4,16 +4,16 @@
 #pragma once
 
 #include "common.hpp"
-#include "list_element.hpp"
+#include "node.hpp"
 
 namespace dbgroup::container
 {
 class List
 {
  protected:
-  ListElement* head_;
+  list::Node front_;
 
-  ListElement* tail_;
+  list::Node back_;
 
  public:
   /*################################################################################################
