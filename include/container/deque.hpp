@@ -47,9 +47,9 @@ class Deque
 
   virtual T Back() = 0;
 
-  virtual void PushFront(T&& x) = 0;
+  virtual void PushFront(const T x) = 0;
 
-  virtual void PushBack(T&& x) = 0;
+  virtual void PushBack(const T x) = 0;
 
   virtual void PopFront() = 0;
 

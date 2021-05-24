@@ -11,6 +11,8 @@ class DequeMwCASFixture : public ::testing::Test
   using Deque_t = ::dbgroup::container::DequeMwCAS;
 
  public:
+  static constexpr size_t kRepeatCount = 1E5;
+
   Deque_t deque_;
 
  protected:
@@ -68,4 +70,42 @@ TEST_F(DequeMwCASFixture, PopBack_AfterPushBack_DequeIsEmpty)
   deque_.PushBack(0);
   deque_.PopBack();
   EXPECT_TRUE(deque_.Empty());
+}
+
+TEST_F(DequeMwCASFixture, Front_AfterPushFronts_ReadPushedItems)
+{
+  for (size_t i = 0; i < kRepeatCount; ++i) {
+    deque_.PushFront(i);
+    EXPECT_EQ(deque_.Front(), i);
+  }
+}
+
+TEST_F(DequeMwCASFixture, Front_AfterPushBacks_ReadPushedItems)
+{
+  for (size_t i = 0; i < kRepeatCount; ++i) {
+    deque_.PushBack(i);
+  }
+  for (size_t i = 0; i < kRepeatCount; ++i) {
+    EXPECT_EQ(deque_.Front(), i);
+    deque_.PopFront();
+  }
+}
+
+TEST_F(DequeMwCASFixture, Back_AfterPushBacks_ReadPushedItems)
+{
+  for (size_t i = 0; i < kRepeatCount; ++i) {
+    deque_.PushBack(i);
+    EXPECT_EQ(deque_.Back(), i);
+  }
+}
+
+TEST_F(DequeMwCASFixture, Back_AfterPushFronts_ReadPushedItems)
+{
+  for (size_t i = 0; i < kRepeatCount; ++i) {
+    deque_.PushFront(i);
+  }
+  for (size_t i = 0; i < kRepeatCount; ++i) {
+    EXPECT_EQ(deque_.Back(), i);
+    deque_.PopBack();
+  }
 }

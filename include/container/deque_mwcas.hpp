@@ -37,7 +37,7 @@ class DequeMwCAS : public Deque
   }
 
   void
-  PushFront(T&& x) override
+  PushFront(const T x) override
   {
     auto old_node = ReadMwCASField<Node*>(&front_.next);
     auto new_node = new Node{T{x}, old_node, &front_};
@@ -57,7 +57,7 @@ class DequeMwCAS : public Deque
   }
 
   void
-  PushBack(T&& x) override
+  PushBack(const T x) override
   {
     auto old_node = ReadMwCASField<Node*>(&back_.prev);
     auto new_node = new Node{T{x}, &back_, old_node};
