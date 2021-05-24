@@ -7,7 +7,7 @@
 
 namespace dbgroup::container
 {
-class List
+class Deque
 {
  protected:
   struct Node {
@@ -27,9 +27,9 @@ class List
    * Public constructors/destructors
    *##############################################################################################*/
 
-  List() : front_{T{}, &back_, nullptr}, back_{T{}, &front_, nullptr} {}
+  Deque() : front_{T{}, &back_, nullptr}, back_{T{}, &front_, nullptr} {}
 
-  virtual ~List()
+  virtual ~Deque()
   {
     auto next = front_.next;
     while (next->next != nullptr) {

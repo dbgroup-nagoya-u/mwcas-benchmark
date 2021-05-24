@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "list.hpp"
+#include "deque.hpp"
 #include "mwcas/mwcas_descriptor.hpp"
 
 namespace dbgroup::container
@@ -11,13 +11,13 @@ namespace dbgroup::container
 using ::dbgroup::atomic::mwcas::MwCASDescriptor;
 using ::dbgroup::atomic::mwcas::ReadMwCASField;
 
-class ListMwCAS : public List
+class DequeMwCAS : public Deque
 {
   /*################################################################################################
    * Public constructors/destructors
    *##############################################################################################*/
 
-  ListMwCAS() : List{} {}
+  DequeMwCAS() : Deque{} {}
 
   /*################################################################################################
    * Public utility functions
