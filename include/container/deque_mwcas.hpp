@@ -11,6 +11,10 @@ namespace dbgroup::container
 using ::dbgroup::atomic::mwcas::MwCASDescriptor;
 using ::dbgroup::atomic::mwcas::ReadMwCASField;
 
+/**
+ * @brief A class to implement a thread-safe deque by using our MwCAS library.
+ *
+ */
 class DequeMwCAS : public Deque
 {
  public:
@@ -18,6 +22,11 @@ class DequeMwCAS : public Deque
    * Public constructors/destructors
    *##############################################################################################*/
 
+  /**
+   * @brief Construct a new DequeMwCAS object.
+   *
+   * The object uses our MwCAS library to perform thread-safe push/pop operations.
+   */
   DequeMwCAS() : Deque{} {}
 
   /*################################################################################################
