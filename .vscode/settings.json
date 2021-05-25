@@ -44,6 +44,7 @@
     "gtest",
     "libgflags",
     "libnuma",
+    "mutex",
     "mwcas",
     "numactl",
     "pthread",
