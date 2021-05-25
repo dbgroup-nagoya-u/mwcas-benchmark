@@ -74,10 +74,10 @@ for SKEW_PARAMETER in ${SKEW_CANDIDATES}; do
         else
           continue
         fi
-        for LOOP in {1..${BENCH_REPEAT_COUNT}}; do
+        for LOOP in `seq ${BENCH_REPEAT_COUNT}`; do
           echo -n "${SKEW_PARAMETER},${TARGET_NUM},${IMPL},${THREAD_NUM},"
           ${BENCH_BIN} \
-            --csv --throughput=f ${IMPL_ARGS} \
+            --csv --throughput=f ${IMPL_ARGS} --num-field ${TARGET_FIELD_NUM} \
             --num_exec ${OPERATION_COUNT} --num_thread ${THREAD_NUM} \
             --num_target ${TARGET_NUM} --skew_parameter ${SKEW_PARAMETER}
           echo ""
