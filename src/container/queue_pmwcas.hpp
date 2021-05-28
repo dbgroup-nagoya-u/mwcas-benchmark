@@ -5,15 +5,15 @@
 
 #include <memory>
 
-#include "deque.hpp"
 #include "memory/manager/tls_based_memory_manager.hpp"
 #include "mwcas/mwcas.h"
 #include "pmwcas.h"
+#include "queue.hpp"
 
 namespace dbgroup::container
 {
 /**
- * @brief A class to implement a thread-safe deque by using Wang's PMwCAS library.
+ * @brief A class to implement a thread-safe queue by using Wang's PMwCAS library.
  *
  */
 class QueuePMwCAS : public Queue

@@ -34,7 +34,6 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
   target_include_directories(
     ${MWCAS_BENCH_TEST_TARGET} PRIVATE
     "${MWCAS_BENCH_SOURCE_DIR}/src"
-    "${MWCAS_BENCH_SOURCE_DIR}/include"
     "${PMWCAS_SOURCE_DIR}/"
     "${PMWCAS_SOURCE_DIR}/src"
     "${PMWCAS_SOURCE_DIR}/include"
@@ -65,7 +64,7 @@ endfunction()
 ADD_MWCAS_BENCH_TEST("worker_mwcas_test")
 ADD_MWCAS_BENCH_TEST("worker_pmwcas_test")
 ADD_MWCAS_BENCH_TEST("worker_cas_test")
-ADD_MWCAS_BENCH_TEST("deque_mwcas_test")
-# ADD_MWCAS_BENCH_TEST("deque_pmwcas_test")
-ADD_MWCAS_BENCH_TEST("deque_mutex_test")
-ADD_MWCAS_BENCH_TEST("deque_cas_test")
+ADD_MWCAS_BENCH_TEST("queue_mwcas_test")
+# ADD_MWCAS_BENCH_TEST("queue_pmwcas_test")
+ADD_MWCAS_BENCH_TEST("queue_mutex_test")
+ADD_MWCAS_BENCH_TEST("queue_cas_test")

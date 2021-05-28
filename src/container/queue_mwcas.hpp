@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "deque.hpp"
 #include "memory/manager/tls_based_memory_manager.hpp"
 #include "mwcas/mwcas_descriptor.hpp"
+#include "queue.hpp"
 
 namespace dbgroup::container
 {

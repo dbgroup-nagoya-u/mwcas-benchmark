@@ -5,12 +5,12 @@
 
 #include <shared_mutex>
 
-#include "deque.hpp"
+#include "queue.hpp"
 
 namespace dbgroup::container
 {
 /**
- * @brief A class to implement a thread-safe deque by using C++ mutex library.
+ * @brief A class to implement a thread-safe queue by using C++ mutex library.
  *
  */
 class QueueMutex : public Queue
