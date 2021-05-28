@@ -12,26 +12,55 @@
 namespace dbgroup::container
 {
 /**
- * @brief A class to implement a thread-safe deque by using C++ CAS operations.
+ * @brief A class to implement a thread-safe queue by using C++ CAS operations.
  *
  */
-class DequeCAS : public Deque
+class QueueCAS : public Queue
 {
-  using GC_t = ::dbgroup::memory::manager::TLSBasedMemoryManager<Node>;
-
-  static constexpr auto mo_relax = std::memory_order_relaxed;
-  static constexpr size_t kGCInterval = 1E3;
-
  private:
-  GC_t gc_;
+  /**
+   * @brief A class to represent nodes in a queue.
+   *
+   */
+  struct Node {
+    /// an element of a queue
+    const T elem{};
 
-  Node*
+    /// a previous node of a queue
+    Node* next{nullptr};
+  };
+
+  /// a dummy node to represent the tail of a queue
+  Node back_;
+
+  /// a dummy node to represent the head of a queue
+  Node front_;
+
+  /// a garbage collector for deleted nodes in a queue
+  ::dbgroup::memory::manager::TLSBasedMemoryManager<Node> gc_;
+
+  /**
+   * @brief Load a node pointer from the specified address atomically.
+   *
+   * @param addr a target address
+   * @return Node* a loaded node pointer
+   */
+  static Node*
   LoadByCAS(void* addr)
   {
     return reinterpret_cast<std::atomic<Node*>*>(addr)->load(mo_relax);
   }
 
-  bool
+  /**
+   * @brief Perform a CAS operation with the specified parameters.
+   *
+   * @param addr a target address
+   * @param old_node an expected node address and modified when failed
+   * @param new_node an desired node address
+   * @retval true if CAS succeeded
+   * @retval false if CAS failed
+   */
+  static bool
   PerformCAS(void* addr, Node** old_node, Node* new_node)
   {
     return reinterpret_cast<std::atomic<Node*>*>(addr)->compare_exchange_weak(*old_node, new_node,
@@ -44,54 +73,65 @@ class DequeCAS : public Deque
    *##############################################################################################*/
 
   /**
-   * @brief Construct a new DequeCAS object.
+   * @brief Construct a new QueueCAS object.
    *
    * The object uses C++ CAS operations to perform thread-safe push/pop operations.
    */
-  DequeCAS() : Deque{}, gc_{kGCInterval} {}
+  QueueCAS() : Queue{}, back_{T{}, &front_}, front_{T{}, &back_}, gc_{kGCInterval} {}
+
+  /**
+   * @brief Destroy the QueueCAS object
+   *
+   */
+  ~QueueCAS()
+  {
+    while (!empty()) {
+      pop();
+    }
+  }
 
   /*################################################################################################
    * Public utility functions
    *##############################################################################################*/
 
   T
-  Front() override
+  front() override
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    return LoadByCAS(&(front_.prev))->elem;
+    return LoadByCAS(&(front_.next))->elem;
   }
 
   T
-  Back() override
+  back() override
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    return LoadByCAS(&(back_.prev))->elem;
+    return LoadByCAS(&(back_.next))->elem;
   }
 
   void
-  PushFront(const T x) override
+  push(const T x) override
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    auto old_node = LoadByCAS(&(front_.prev));
-    auto new_node = new Node{T{x}, nullptr, &front_};
-    auto prev_node = &front_;
+    auto old_node = LoadByCAS(&(back_.next));
+    auto new_node = new Node{T{x}, &back_};
+    auto prev_node = &back_;
 
     // swap a backwars pointer
     while (true) {
-      if (PerformCAS(&(old_node->prev), &prev_node, new_node)) {
+      if (PerformCAS(&(old_node->next), &prev_node, new_node)) {
         break;
       }
-      if (prev_node != nullptr && prev_node != &front_) {
-        // another thread has enqueued a new node
+      if (prev_node != nullptr && prev_node != &back_) {
+        // another thread has pushed a new node
         old_node = prev_node;
-        prev_node = &front_;
+        prev_node = &back_;
       } else if (prev_node == nullptr) {
-        // another thread has dequeued a target node
-        old_node = LoadByCAS(&(front_.prev));
-        prev_node = &front_;
+        // another thread has popped a target node
+        old_node = LoadByCAS(&(back_.next));
+        prev_node = &back_;
       }
       // if prev_node is not changed, CAS is failed due to its weak property
     }
@@ -99,59 +139,49 @@ class DequeCAS : public Deque
     // swap a tail pointer
     while (true) {
       auto tmp_old = old_node;
-      if (PerformCAS(&(front_.prev), &tmp_old, new_node)) {
+      if (PerformCAS(&(back_.next), &tmp_old, new_node)) {
         return;
       }
     }
   }
 
   void
-  PushBack(const T x) override
-  {
-  }
-
-  void
-  PopFront() override
-  {
-  }
-
-  void
-  PopBack() override
+  pop() override
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    auto old_node = LoadByCAS(&(back_.prev));
+    auto old_node = LoadByCAS(&(front_.next));
 
     while (true) {
-      if (old_node == &front_) {
+      if (old_node == &back_) {
         // if old_node is a tail node, the queue is empty
         return;
       }
 
-      auto new_node = LoadByCAS(&(old_node->prev));
-      if (new_node != nullptr && new_node != &front_) {
+      auto new_node = LoadByCAS(&(old_node->next));
+      if (new_node != nullptr && new_node != &back_) {
         // if new_node is not a tail node, just swap a head
-        if (PerformCAS(&(back_.prev), &old_node, new_node)) {
+        if (PerformCAS(&(front_.next), &old_node, new_node)) {
           break;
         }
       } else if (new_node == nullptr) {
         // if new_node is null, retry because another thread has popped it
-        old_node = LoadByCAS(&(back_.prev));
+        old_node = LoadByCAS(&(front_.next));
       } else {  // new_node is a tail node, and it is required to swap head/tail nodes
         // first of all, swap the pointer of old_node to linearize push/pop operations
-        auto tmp_node = &front_;
-        if (!PerformCAS(&(old_node->prev), &tmp_node, nullptr)) {
+        auto tmp_node = &back_;
+        if (!PerformCAS(&(old_node->next), &tmp_node, nullptr)) {
           // if failed, retry because another thread has modified a queue
-          old_node = LoadByCAS(&(back_.prev));
+          old_node = LoadByCAS(&(front_.next));
           continue;
         }
 
         // swap head/tail nodes
         tmp_node = old_node;
-        while (!PerformCAS(&(back_.prev), &tmp_node, &front_)) {
+        while (!PerformCAS(&(front_.next), &tmp_node, &back_)) {
           tmp_node = old_node;
         }
-        while (!PerformCAS(&(front_.prev), &tmp_node, &back_)) {
+        while (!PerformCAS(&(back_.next), &tmp_node, &front_)) {
           tmp_node = old_node;
         }
       }
@@ -161,11 +191,25 @@ class DequeCAS : public Deque
   }
 
   bool
-  Empty() override
+  empty() override
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    return LoadByCAS(&(back_.prev)) == &front_;
+    return LoadByCAS(&(front_.next)) == &back_;
+  }
+
+  bool
+  IsValid() const override
+  {
+    auto prev_node = &front_;
+    auto current_node = prev_node->next;
+
+    while (current_node != &back_) {
+      prev_node = current_node;
+      current_node = current_node->next;
+    }
+
+    return current_node->next == prev_node;
   }
 };
 

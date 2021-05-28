@@ -6,37 +6,81 @@
 #include <memory>
 
 #include "deque.hpp"
+#include "memory/manager/tls_based_memory_manager.hpp"
 #include "mwcas/mwcas.h"
-#include "mwcas/mwcas_descriptor.hpp"
 #include "pmwcas.h"
 
 namespace dbgroup::container
 {
-using ::dbgroup::atomic::mwcas::MwCASDescriptor;
-using ::dbgroup::atomic::mwcas::ReadMwCASField;
-
 /**
- * @brief A class to implement a thread-safe deque by using Microsoft's PMwCAS library.
+ * @brief A class to implement a thread-safe deque by using Wang's PMwCAS library.
  *
  */
-class DequePMwCAS : public Deque
+class QueuePMwCAS : public Queue
 {
  private:
+  /**
+   * @brief A class to represent nodes in a queue.
+   *
+   */
+  struct Node {
+    /// an element of a queue
+    const T elem{};
+
+    /// a previous node of a queue
+    Node *next{nullptr};
+  };
+
+  /// a dummy node to represent the tail of a queue
+  Node front_;
+
+  /// a dummy node to represent the head of a queue
+  Node back_;
+
+  /// a garbage collector for deleted nodes in a queue
+  ::dbgroup::memory::manager::TLSBasedMemoryManager<Node> gc_;
+
+  /// a pool for PMwCAS descriptors
   std::unique_ptr<pmwcas::DescriptorPool> desc_pool_;
+
+  Node *
+  ReadNodeAddrProtected(Node **addr)
+  {
+    return reinterpret_cast<Node *>(
+        reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(addr)->GetValueProtected());
+  }
+
+  void
+  AddEntry(  //
+      pmwcas::Descriptor *desc,
+      Node **addr,
+      Node *old_node,
+      Node *new_node)
+  {
+    auto addr_ptr = reinterpret_cast<uintptr_t *>(addr);
+    auto old_addr = reinterpret_cast<uintptr_t>(old_node);
+    auto new_addr = reinterpret_cast<uintptr_t>(new_node);
+
+    desc->AddEntry(addr_ptr, old_addr, new_addr);
+  }
 
  public:
   /*################################################################################################
    * Public constructors/destructors
    *##############################################################################################*/
 
-  DequePMwCAS() : Deque{}, desc_pool_{nullptr} {}
+  QueuePMwCAS()
+      : Queue{}, front_{T{}, &back_}, back_{T{}, &front_}, gc_{kGCInterval}, desc_pool_{nullptr}
+  {
+  }
 
   /**
-   * @brief Construct a new DequePMwCAS object.
+   * @brief Construct a new QueuePMwCAS object.
    *
-   * The object uses Microsoft's PMwCAS library to perform thread-safe push/pop operations.
+   * The object uses Wang's PMwCAS library to perform thread-safe push/pop operations.
    */
-  explicit DequePMwCAS(const size_t thread_num) : Deque{}
+  explicit QueuePMwCAS(const size_t thread_num)
+      : Queue{}, front_{T{}, &back_}, back_{T{}, &front_}, gc_{kGCInterval}
   {
     pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
                         pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
@@ -49,197 +93,101 @@ class DequePMwCAS : public Deque
    *##############################################################################################*/
 
   T
-  Front() override
+  front() override
   {
-    auto epoch = desc_pool_->GetEpoch();
-    epoch->Protect();
+    const auto gc_guard = gc_.CreateEpochGuard();
+    const pmwcas::EpochGuard epoch_guard{desc_pool_->GetEpoch()};
 
-    const uintptr_t next_addr =
-        reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(&front_.next)->GetValueProtected();
-    const auto next_node = reinterpret_cast<Node *>(next_addr);
-
-    epoch->Unprotect();
-    return next_node->elem;
+    return ReadNodeAddrProtected(&(front_.next))->elem;
   }
 
   T
-  Back() override
+  back() override
   {
-    auto epoch = desc_pool_->GetEpoch();
-    epoch->Protect();
+    const auto gc_guard = gc_.CreateEpochGuard();
+    const pmwcas::EpochGuard epoch_guard{desc_pool_->GetEpoch()};
 
-    const uintptr_t prev_addr =
-        reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(&back_.prev)->GetValueProtected();
-    const auto prev_node = reinterpret_cast<Node *>(prev_addr);
-
-    epoch->Unprotect();
-    return prev_node->elem;
+    return ReadNodeAddrProtected(&(back_.next))->elem;
   }
 
   void
-  PushFront(const T x) override
+  push(const T x) override
   {
-    auto epoch = desc_pool_->GetEpoch();
-    epoch->Protect();
+    const auto gc_guard = gc_.CreateEpochGuard();
+    const pmwcas::EpochGuard epoch_guard{desc_pool_->GetEpoch()};
 
-    const uintptr_t front_addr = reinterpret_cast<uintptr_t>(&front_);
-    uintptr_t *next_ptr = reinterpret_cast<uintptr_t *>(&(front_.next));
-    uintptr_t old_addr =
-        reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(next_ptr)->GetValueProtected();
-    uintptr_t *prev_ptr =
-        reinterpret_cast<uintptr_t *>(&(reinterpret_cast<Node *>(old_addr)->prev));
-
-    auto new_node = new Node{T{x}, reinterpret_cast<Node *>(old_addr), &front_};
-    const uintptr_t new_addr = reinterpret_cast<uintptr_t>(new_node);
+    auto old_node = ReadNodeAddrProtected(&(back_.next));
+    auto new_node = new Node{T{x}, &back_};
 
     while (true) {
       auto desc = desc_pool_->AllocateDescriptor();
 
-      desc->AddEntry(next_ptr, old_addr, new_addr);
-      desc->AddEntry(prev_ptr, front_addr, new_addr);
-      const bool success = desc->MwCAS();
+      AddEntry(desc, &(back_.next), old_node, new_node);
+      AddEntry(desc, &(old_node->next), &back_, new_node);
 
-      if (success) {
+      if (desc->MwCAS()) {
         break;
-      } else {
-        old_addr =
-            reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(next_ptr)->GetValueProtected();
-        new_node->next = reinterpret_cast<Node *>(old_addr);
-        prev_ptr = reinterpret_cast<uintptr_t *>(&(reinterpret_cast<Node *>(old_addr)->prev));
       }
+      old_node = ReadNodeAddrProtected(&(back_.next));
     }
-
-    epoch->Unprotect();
   }
 
   void
-  PushBack(const T x) override
+  pop() override
   {
-    auto epoch = desc_pool_->GetEpoch();
-    epoch->Protect();
+    const auto gc_guard = gc_.CreateEpochGuard();
+    const pmwcas::EpochGuard epoch_guard{desc_pool_->GetEpoch()};
 
-    const uintptr_t back_addr = reinterpret_cast<uintptr_t>(&back_);
-    uintptr_t *prev_ptr = reinterpret_cast<uintptr_t *>(&(back_.prev));
-    uintptr_t old_addr =
-        reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(prev_ptr)->GetValueProtected();
-    uintptr_t *next_ptr =
-        reinterpret_cast<uintptr_t *>(&(reinterpret_cast<Node *>(old_addr)->next));
-
-    auto new_node = new Node{T{x}, &back_, reinterpret_cast<Node *>(old_addr)};
-    const uintptr_t new_addr = reinterpret_cast<uintptr_t>(new_node);
+    auto old_node = ReadNodeAddrProtected(&(front_.next));
 
     while (true) {
-      auto desc = desc_pool_->AllocateDescriptor();
-
-      desc->AddEntry(next_ptr, back_addr, new_addr);
-      desc->AddEntry(prev_ptr, old_addr, new_addr);
-      const bool success = desc->MwCAS();
-
-      if (success) {
-        break;
-      } else {
-        old_addr =
-            reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(prev_ptr)->GetValueProtected();
-        new_node->prev = reinterpret_cast<Node *>(old_addr);
-        next_ptr = reinterpret_cast<uintptr_t *>(&(reinterpret_cast<Node *>(old_addr)->next));
+      if (old_node == &back_) {
+        // if old_node is a back node, the queue is empty
+        return;
       }
-    }
 
-    epoch->Unprotect();
-  }
-
-  void
-  PopFront() override
-  {
-    auto epoch = desc_pool_->GetEpoch();
-    epoch->Protect();
-
-    const uintptr_t front_addr = reinterpret_cast<uintptr_t>(&front_);
-    uintptr_t *next_ptr = reinterpret_cast<uintptr_t *>(&(front_.next));
-    uintptr_t old_addr =
-        reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(next_ptr)->GetValueProtected();
-    uintptr_t new_addr = reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(
-                             &(reinterpret_cast<Node *>(old_addr)->next))
-                             ->GetValueProtected();
-
-    while (new_addr != 0) {  // if new_node is null, old_node is end of a deque
-      uintptr_t *prev_ptr =
-          reinterpret_cast<uintptr_t *>(&(reinterpret_cast<Node *>(new_addr)->prev));
+      auto new_node = ReadNodeAddrProtected(&(old_node->next));
 
       auto desc = desc_pool_->AllocateDescriptor();
-
-      desc->AddEntry(next_ptr, old_addr, new_addr);
-      desc->AddEntry(prev_ptr, old_addr, front_addr);
-      const bool success = desc->MwCAS();
-
-      if (success) {
-        // delete reinterpret_cast<Node *>(old_addr);
-        break;
+      if (new_node != &back_) {
+        // if new_node is not a back node, just swap the front
+        AddEntry(desc, &(front_.next), old_node, new_node);
       } else {
-        old_addr =
-            reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(next_ptr)->GetValueProtected();
-        new_addr = reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(
-                       &(reinterpret_cast<Node *>(old_addr)->next))
-                       ->GetValueProtected();
+        // if new_node is a back node, it is required to swap the front/back nodes
+        AddEntry(desc, &(front_.next), old_node, &back_);
+        AddEntry(desc, &(back_.next), old_node, &front_);
       }
+
+      if (desc->MwCAS()) {
+        break;
+      }
+      old_node = ReadNodeAddrProtected(&(front_.next));
     }
 
-    epoch->Unprotect();
-  }
-
-  void
-  PopBack() override
-  {
-    auto epoch = desc_pool_->GetEpoch();
-    epoch->Protect();
-
-    const uintptr_t back_addr = reinterpret_cast<uintptr_t>(&back_);
-    uintptr_t *prev_ptr = reinterpret_cast<uintptr_t *>(&(back_.prev));
-    uintptr_t old_addr =
-        reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(prev_ptr)->GetValueProtected();
-    uintptr_t new_addr = reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(
-                             &(reinterpret_cast<Node *>(old_addr)->prev))
-                             ->GetValueProtected();
-
-    while (new_addr != 0) {  // if new_node is null, old_node is end of a deque
-      uintptr_t *next_ptr =
-          reinterpret_cast<uintptr_t *>(&(reinterpret_cast<Node *>(new_addr)->next));
-
-      auto desc = desc_pool_->AllocateDescriptor();
-
-      desc->AddEntry(next_ptr, old_addr, back_addr);
-      desc->AddEntry(prev_ptr, old_addr, new_addr);
-      const bool success = desc->MwCAS();
-
-      if (success) {
-        // delete reinterpret_cast<Node *>(old_addr);
-        break;
-      } else {
-        old_addr =
-            reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(prev_ptr)->GetValueProtected();
-        new_addr = reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(
-                       &(reinterpret_cast<Node *>(old_addr)->prev))
-                       ->GetValueProtected();
-      }
-    }
-
-    epoch->Unprotect();
+    gc_.AddGarbage(old_node);
   }
 
   bool
-  Empty() override
+  empty() override
   {
-    auto epoch = desc_pool_->GetEpoch();
-    epoch->Protect();
+    const auto gc_guard = gc_.CreateEpochGuard();
+    const pmwcas::EpochGuard epoch_guard{desc_pool_->GetEpoch()};
 
-    uintptr_t next_addr =
-        reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(&(front_.next))->GetValueProtected();
-    const uintptr_t next_next_addr = reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(
-                                         &(reinterpret_cast<Node *>(next_addr)->next))
-                                         ->GetValueProtected();
+    return ReadNodeAddrProtected(&(front_.next)) == &back_;
+  }
 
-    epoch->Unprotect();
-    return next_next_addr == 0;
+  bool
+  IsValid() const override
+  {
+    auto prev_node = &front_;
+    auto current_node = prev_node->next;
+
+    while (current_node != &back_) {
+      prev_node = current_node;
+      current_node = current_node->next;
+    }
+
+    return current_node->next == prev_node;
   }
 };
 

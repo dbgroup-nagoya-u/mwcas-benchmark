@@ -4,6 +4,7 @@
 #pragma once
 
 #include "deque.hpp"
+#include "memory/manager/tls_based_memory_manager.hpp"
 #include "mwcas/mwcas_descriptor.hpp"
 
 namespace dbgroup::container
@@ -12,126 +13,150 @@ using ::dbgroup::atomic::mwcas::MwCASDescriptor;
 using ::dbgroup::atomic::mwcas::ReadMwCASField;
 
 /**
- * @brief A class to implement a thread-safe deque by using our MwCAS library.
+ * @brief A class to implement a thread-safe queue by using our MwCAS library.
  *
  */
-class DequeMwCAS : public Deque
+class QueueMwCAS : public Queue
 {
+ private:
+  /**
+   * @brief A class to represent nodes in a queue.
+   *
+   */
+  struct Node {
+    /// an element of a queue
+    const T elem{};
+
+    /// a previous node of a queue
+    Node* next{nullptr};
+  };
+
+  /// a dummy node to represent the tail of a queue
+  Node front_;
+
+  /// a dummy node to represent the head of a queue
+  Node back_;
+
+  /// a garbage collector for deleted nodes in a queue
+  ::dbgroup::memory::manager::TLSBasedMemoryManager<Node> gc_;
+
  public:
   /*################################################################################################
    * Public constructors/destructors
    *##############################################################################################*/
 
   /**
-   * @brief Construct a new DequeMwCAS object.
+   * @brief Construct a new QueueMwCAS object.
    *
    * The object uses our MwCAS library to perform thread-safe push/pop operations.
    */
-  DequeMwCAS() : Deque{} {}
+  QueueMwCAS() : Queue{}, front_{T{}, &back_}, back_{T{}, &front_}, gc_{kGCInterval} {}
+
+  /**
+   * @brief Destroy the QueueMwCAS object
+   *
+   */
+  ~QueueMwCAS()
+  {
+    while (!empty()) {
+      pop();
+    }
+  }
 
   /*################################################################################################
    * Public utility functions
    *##############################################################################################*/
 
   T
-  Front() override
+  front() override
   {
-    return ReadMwCASField<Node*>(&front_.next)->elem;
+    const auto guard = gc_.CreateEpochGuard();
+
+    return ReadMwCASField<Node*>(&(front_.next))->elem;
   }
 
   T
-  Back() override
+  back() override
   {
-    return ReadMwCASField<Node*>(&back_.prev)->elem;
+    const auto guard = gc_.CreateEpochGuard();
+
+    return ReadMwCASField<Node*>(&(back_.next))->elem;
   }
 
   void
-  PushFront(const T x) override
+  push(const T x) override
   {
-    auto old_node = ReadMwCASField<Node*>(&front_.next);
-    auto new_node = new Node{T{x}, old_node, &front_};
+    const auto guard = gc_.CreateEpochGuard();
+
+    auto old_node = ReadMwCASField<Node*>(&(back_.next));
+    auto new_node = new Node{T{x}, &back_};
 
     while (true) {
       MwCASDescriptor desc{};
-      desc.AddMwCASTarget(&front_.next, old_node, new_node);
-      desc.AddMwCASTarget(&(old_node->prev), &front_, new_node);
-
-      if (desc.MwCAS()) {
-        break;
-      } else {
-        old_node = ReadMwCASField<Node*>(&front_.next);
-        new_node->next = old_node;
-      }
-    }
-  }
-
-  void
-  PushBack(const T x) override
-  {
-    auto old_node = ReadMwCASField<Node*>(&back_.prev);
-    auto new_node = new Node{T{x}, &back_, old_node};
-
-    while (true) {
-      MwCASDescriptor desc{};
+      desc.AddMwCASTarget(&(back_.next), old_node, new_node);
       desc.AddMwCASTarget(&(old_node->next), &back_, new_node);
-      desc.AddMwCASTarget(&back_.prev, old_node, new_node);
 
       if (desc.MwCAS()) {
         break;
-      } else {
-        old_node = ReadMwCASField<Node*>(&back_.prev);
-        new_node->prev = old_node;
       }
+      old_node = ReadMwCASField<Node*>(&(back_.next));
     }
   }
 
   void
-  PopFront() override
+  pop() override
   {
-    auto old_node = ReadMwCASField<Node*>(&front_.next);
-    auto new_node = ReadMwCASField<Node*>(&(old_node->next));
+    const auto guard = gc_.CreateEpochGuard();
 
-    while (new_node != nullptr) {  // if new_node is null, old_node is end of a deque
+    auto old_node = ReadMwCASField<Node*>(&(front_.next));
+
+    while (true) {
+      if (old_node == &back_) {
+        // if old_node is a back node, the queue is empty
+        return;
+      }
+
+      auto new_node = ReadMwCASField<Node*>(&(old_node->next));
+
       MwCASDescriptor desc{};
-      desc.AddMwCASTarget(&front_.next, old_node, new_node);
-      desc.AddMwCASTarget(&(new_node->prev), old_node, &front_);
+      if (new_node != &back_) {
+        // if new_node is not a back node, just swap the front
+        desc.AddMwCASTarget(&(front_.next), old_node, new_node);
+      } else {
+        // if new_node is a back node, it is required to swap the front/back nodes
+        desc.AddMwCASTarget(&(front_.next), old_node, &back_);
+        desc.AddMwCASTarget(&(back_.next), old_node, &front_);
+      }
 
       if (desc.MwCAS()) {
-        delete old_node;
         break;
-      } else {
-        old_node = ReadMwCASField<Node*>(&front_.next);
-        new_node = ReadMwCASField<Node*>(&(old_node->next));
       }
+      old_node = ReadMwCASField<Node*>(&(front_.next));
     }
-  }
 
-  void
-  PopBack() override
-  {
-    auto old_node = ReadMwCASField<Node*>(&back_.prev);
-    auto new_node = ReadMwCASField<Node*>(&(old_node->prev));
-
-    while (new_node != nullptr) {  // if new_node is null, old_node is end of a deque
-      MwCASDescriptor desc{};
-      desc.AddMwCASTarget(&(new_node->next), old_node, &back_);
-      desc.AddMwCASTarget(&back_.prev, old_node, new_node);
-
-      if (desc.MwCAS()) {
-        delete old_node;
-        break;
-      } else {
-        old_node = ReadMwCASField<Node*>(&back_.prev);
-        new_node = ReadMwCASField<Node*>(&(old_node->prev));
-      }
-    }
+    gc_.AddGarbage(old_node);
   }
 
   bool
-  Empty() override
+  empty() override
   {
-    const auto next_node = ReadMwCASField<Node*>(&front_.next);
-    return ReadMwCASField<Node*>(&(next_node->next)) == nullptr;
+    const auto guard = gc_.CreateEpochGuard();
+
+    return ReadMwCASField<Node*>(&(front_.next)) == &back_;
+  }
+
+  bool
+  IsValid() const override
+  {
+    auto prev_node = &front_;
+    auto current_node = prev_node->next;
+
+    while (current_node != &back_) {
+      prev_node = current_node;
+      current_node = current_node->next;
+    }
+
+    return current_node->next == prev_node;
   }
 };
 

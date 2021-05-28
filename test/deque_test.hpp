@@ -9,27 +9,27 @@
 
 #include "gtest/gtest.h"
 
-class DequeFixture : public ::testing::Test
+class QueueFixture : public ::testing::Test
 {
  public:
   static constexpr size_t kRepeatNum = 1E5;
   static constexpr size_t kThreadNum = 8;
 
-  std::unique_ptr<Deque_t> deque_ = nullptr;
+  std::unique_ptr<Queue_t> queue_ = nullptr;
 
   void
-  PushFronts(const size_t repeat_num)
+  PushElements(const size_t repeat_num)
   {
     for (size_t i = 0; i < repeat_num; ++i) {
-      deque_->PushFront(i);
+      queue_->push(i);
     }
   }
 
   void
-  PopBacks(const size_t repeat_num)
+  PopElements(const size_t repeat_num)
   {
     for (size_t i = 0; i < repeat_num; ++i) {
-      deque_->PopBack();
+      queue_->pop();
     }
   }
 
@@ -39,98 +39,90 @@ class DequeFixture : public ::testing::Test
   void TearDown();
 };
 
-TEST_F(DequeFixture, Construct_Default_DequeCorrectlyInitialized)
+TEST_F(QueueFixture, Construct_Default_QueueCorrectlyInitialized)
 {
-  EXPECT_TRUE(deque_->Empty());
-  EXPECT_TRUE(deque_->IsValid());
+  EXPECT_TRUE(queue_->empty());
+  EXPECT_TRUE(queue_->IsValid());
 }
 
-TEST_F(DequeFixture, PushFront_OneItem_DequeIsNotEmpty)
+TEST_F(QueueFixture, PushFront_OneItem_QueueIsNotEmpty)
 {
-  deque_->PushFront(0);
-  EXPECT_FALSE(deque_->Empty());
-  EXPECT_TRUE(deque_->IsValid());
+  queue_->push(0);
+  EXPECT_FALSE(queue_->empty());
+  EXPECT_TRUE(queue_->IsValid());
 }
 
-TEST_F(DequeFixture, PushFront_ByMultiThreads_AllItemsPushed)
+TEST_F(QueueFixture, PushFront_ByMultiThreads_AllItemsPushed)
 {
   std::vector<std::thread> threads;
   for (size_t i = 0; i < kThreadNum; ++i) {
-    threads.emplace_back(&DequeFixture::PushFronts, this, kRepeatNum);
+    threads.emplace_back(&QueueFixture::PushElements, this, kRepeatNum);
   }
   for (auto &&thread : threads) {
     thread.join();
   }
 
-  EXPECT_TRUE(deque_->IsValid());
+  EXPECT_TRUE(queue_->IsValid());
 
   for (size_t i = 0; i < kRepeatNum * kThreadNum; ++i) {
-    EXPECT_FALSE(deque_->Empty());
-    deque_->PopBack();
+    EXPECT_FALSE(queue_->empty());
+    queue_->pop();
   }
-  EXPECT_TRUE(deque_->Empty());
+  EXPECT_TRUE(queue_->empty());
 }
 
-TEST_F(DequeFixture, PopBack_AfterPushFront_DequeIsEmpty)
+TEST_F(QueueFixture, PopBack_AfterPushFront_QueueIsEmpty)
 {
-  deque_->PushFront(0);
-  deque_->PopBack();
-  EXPECT_TRUE(deque_->Empty());
-  EXPECT_TRUE(deque_->IsValid());
+  queue_->push(0);
+  queue_->pop();
+  EXPECT_TRUE(queue_->empty());
+  EXPECT_TRUE(queue_->IsValid());
 }
 
-TEST_F(DequeFixture, PopBack_AfterPushBack_DequeIsEmpty)
+TEST_F(QueueFixture, PopBack_ByMultiThreads_AllItemsPopped)
 {
-  deque_->PushBack(0);
-  deque_->PopBack();
-  EXPECT_TRUE(deque_->Empty());
-  EXPECT_TRUE(deque_->IsValid());
-}
-
-TEST_F(DequeFixture, PopBack_ByMultiThreads_AllItemsPopped)
-{
-  PushFronts(kRepeatNum * kThreadNum);
+  PushElements(kRepeatNum * kThreadNum);
 
   std::vector<std::thread> threads;
   for (size_t i = 0; i < kThreadNum; ++i) {
-    threads.emplace_back(&DequeFixture::PopBacks, this, kRepeatNum);
+    threads.emplace_back(&QueueFixture::PopElements, this, kRepeatNum);
   }
   for (auto &&thread : threads) {
     thread.join();
   }
 
-  EXPECT_TRUE(deque_->Empty());
-  EXPECT_TRUE(deque_->IsValid());
+  EXPECT_TRUE(queue_->empty());
+  EXPECT_TRUE(queue_->IsValid());
 }
 
-TEST_F(DequeFixture, Front_AfterPushFronts_ReadPushedItems)
+TEST_F(QueueFixture, Front_AfterPushFronts_ReadPushedItems)
 {
+  PushElements(kRepeatNum);
   for (size_t i = 0; i < kRepeatNum; ++i) {
-    deque_->PushFront(i);
-    EXPECT_EQ(deque_->Front(), i);
+    EXPECT_EQ(queue_->front(), i);
+    queue_->pop();
   }
 }
 
-TEST_F(DequeFixture, Back_AfterPushFronts_ReadPushedItems)
+TEST_F(QueueFixture, Back_AfterPushFronts_ReadPushedItems)
 {
-  PushFronts(kRepeatNum);
   for (size_t i = 0; i < kRepeatNum; ++i) {
-    EXPECT_EQ(deque_->Back(), i);
-    deque_->PopBack();
+    queue_->push(i);
+    EXPECT_EQ(queue_->back(), i);
   }
 }
 
-TEST_F(DequeFixture, PushAndPop_EmptyDeque_QueueKeepValid)
+TEST_F(QueueFixture, PushAndPop_EmptyQueue_QueueKeepValid)
 {
   std::vector<std::thread> threads;
   size_t i = 0;
   for (; i < kThreadNum; i += 2) {
-    threads.emplace_back(&DequeFixture::PopBacks, this, kRepeatNum);
-    threads.emplace_back(&DequeFixture::PushFronts, this, kRepeatNum);
+    threads.emplace_back(&QueueFixture::PopElements, this, kRepeatNum);
+    threads.emplace_back(&QueueFixture::PushElements, this, kRepeatNum);
   }
   for (auto &&thread : threads) {
     thread.join();
   }
 
-  EXPECT_TRUE(deque_->IsValid());
+  EXPECT_TRUE(queue_->IsValid());
 }

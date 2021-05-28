@@ -4,17 +4,17 @@
 #include "container/deque_mutex.hpp"
 
 using Key = uint64_t;
-using Deque_t = ::dbgroup::container::DequeMutex;
+using Queue_t = ::dbgroup::container::QueueMutex;
 
 #include "deque_test.hpp"
 
 void
-DequeFixture::SetUp()
+QueueFixture::SetUp()
 {
-  deque_ = std::make_unique<Deque_t>();
+  queue_ = std::make_unique<Queue_t>();
 }
 
 void
-DequeFixture::TearDown()
+QueueFixture::TearDown()
 {
 }

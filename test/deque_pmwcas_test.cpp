@@ -4,17 +4,17 @@
 #include "container/deque_pmwcas.hpp"
 
 using Key = uint64_t;
-using Deque_t = ::dbgroup::container::DequePMwCAS;
+using Queue_t = ::dbgroup::container::QueuePMwCAS;
 
 #include "deque_test.hpp"
 
 void
-DequeFixture::SetUp()
+QueueFixture::SetUp()
 {
-  deque_ = std::make_unique<Deque_t>(kThreadNum);
+  queue_ = std::make_unique<Queue_t>(kThreadNum);
 }
 
 void
-DequeFixture::TearDown()
+QueueFixture::TearDown()
 {
 }

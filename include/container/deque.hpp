@@ -8,128 +8,72 @@
 namespace dbgroup::container
 {
 /**
- * @brief An abstract class to represent a thread-safe deque.
+ * @brief An abstract class to represent a thread-safe queue.
  *
  */
-class Deque
+class Queue
 {
- protected:
-  /**
-   * @brief A class to represent nodes in a deque.
-   *
-   */
-  struct Node {
-    /// an element of a deque
-    const T elem = T{};
-
-    /// a next node of a deque
-    Node* next = nullptr;
-
-    /// a previous node of a deque
-    Node* prev = nullptr;
-  };
-
-  /// a dummy node to represent the head of a deque
-  Node front_;
-
-  /// a dummy node to represent the tail of a deque
-  Node back_;
-
  public:
   /*################################################################################################
    * Public constructors/destructors
    *##############################################################################################*/
 
   /**
-   * @brief Construct a new Deque object.
+   * @brief Construct a new Queue object.
    *
    */
-  Deque() : front_{T{}, nullptr, &back_}, back_{T{}, nullptr, &front_} {}
+  Queue() = default;
 
   /**
-   * @brief Destroy the Deque object.
+   * @brief Destroy the Queue object.
    *
-   * Since the Deque object comprises Node objects, the destructor deletes all of them.
+   * Since the Queue object comprises Node objects, the destructor deletes all of them.
    */
-  virtual ~Deque()
-  {
-    auto next = back_.prev;
-    while (next != &front_) {
-      auto prev = next;
-      next = next->prev;
-      delete prev;
-    }
-  }
+  virtual ~Queue() = default;
 
   /*################################################################################################
    * Public utility functions
    *##############################################################################################*/
 
   /**
-   * @brief Get a front element from the deque.
+   * @brief Get a front element from the queue.
    *
-   * Note that if the deque is empty, the return value is undefined.
+   * Note that if the queue is empty, the return value is undefined.
    *
    * @return T a front element
    */
-  virtual T Front() = 0;
+  virtual T front() = 0;
 
   /**
-   * @brief Get a back element from the deque.
+   * @brief Get a back element from the queue.
    *
-   * Note that if the deque is empty, the return value is undefined.
+   * Note that if the queue is empty, the return value is undefined.
    *
    * @return T a back element
    */
-  virtual T Back() = 0;
+  virtual T back() = 0;
 
   /**
-   * @brief Push a new element to the front of the deque.
+   * @brief Push a new element to the back of the queue.
    *
    * @param x a new element to push
    */
-  virtual void PushFront(const T x) = 0;
+  virtual void push(const T x) = 0;
 
   /**
-   * @brief Push a new element to the back of the deque.
+   * @brief Pop the front element.
    *
-   * @param x a new element to push
+   * Note that if the queue has no element, this method do nothing.
    */
-  virtual void PushBack(const T x) = 0;
+  virtual void pop() = 0;
 
   /**
-   * @brief Pop a front element.
-   *
-   * Note that if the deque has no element, this method do nothing.
+   * @retval true if the queue is empty
+   * @retval false if the queue has any elements
    */
-  virtual void PopFront() = 0;
+  virtual bool empty() = 0;
 
-  /**
-   * @brief Pop a back element.
-   *
-   * Note that if the deque has no element, this method do nothing.
-   */
-  virtual void PopBack() = 0;
-
-  /**
-   * @retval true if the deque is empty
-   * @retval false if the deque has any elements
-   */
-  virtual bool Empty() = 0;
-
-  bool
-  IsValid() const
-  {
-    auto prev_node = &back_;
-    auto current_node = prev_node->prev;
-
-    while (current_node != &front_) {
-      prev_node = current_node;
-      current_node = current_node->prev;
-    }
-
-    return current_node->prev == prev_node;
-  }
+  virtual bool IsValid() const = 0;
 };
 
 }  // namespace dbgroup::container

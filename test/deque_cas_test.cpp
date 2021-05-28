@@ -4,17 +4,17 @@
 #include "container/deque_cas.hpp"
 
 using Key = uint64_t;
-using Deque_t = ::dbgroup::container::DequeCAS;
+using Queue_t = ::dbgroup::container::QueueCAS;
 
 #include "deque_test.hpp"
 
 void
-DequeFixture::SetUp()
+QueueFixture::SetUp()
 {
-  deque_ = std::make_unique<Deque_t>();
+  queue_ = std::make_unique<Queue_t>();
 }
 
 void
-DequeFixture::TearDown()
+QueueFixture::TearDown()
 {
 }
