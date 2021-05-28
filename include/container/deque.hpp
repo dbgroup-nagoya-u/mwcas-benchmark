@@ -44,7 +44,7 @@ class Deque
    * @brief Construct a new Deque object.
    *
    */
-  Deque() : front_{T{}, &back_, nullptr}, back_{T{}, nullptr, &front_} {}
+  Deque() : front_{T{}, nullptr, &back_}, back_{T{}, nullptr, &front_} {}
 
   /**
    * @brief Destroy the Deque object.
@@ -53,10 +53,10 @@ class Deque
    */
   virtual ~Deque()
   {
-    auto next = front_.next;
-    while (next->next != nullptr) {
+    auto next = back_.prev;
+    while (next != &front_) {
       auto prev = next;
-      next = next->next;
+      next = next->prev;
       delete prev;
     }
   }
@@ -116,6 +116,20 @@ class Deque
    * @retval false if the deque has any elements
    */
   virtual bool Empty() = 0;
+
+  bool
+  IsValid() const
+  {
+    auto prev_node = &back_;
+    auto current_node = prev_node->prev;
+
+    while (current_node != &front_) {
+      prev_node = current_node;
+      current_node = current_node->prev;
+    }
+
+    return current_node->prev == prev_node;
+  }
 };
 
 }  // namespace dbgroup::container

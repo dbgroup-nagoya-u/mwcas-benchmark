@@ -43,18 +43,20 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
     ${MWCAS_BENCH_TEST_TARGET} PRIVATE
     mwcas
     pmwcas_static
+    rt
     gflags
     gtest_main
-    rt
     cpp_utility
+    memory_manager
   )
   add_dependencies(
     ${MWCAS_BENCH_TEST_TARGET}
     mwcas
     pmwcas_static
-    cpp_utility
     gflags
     gtest_main
+    cpp_utility
+    memory_manager
   )
   add_test(NAME ${MWCAS_BENCH_TEST_TARGET} COMMAND $<TARGET_FILE:${MWCAS_BENCH_TEST_TARGET}>)
 endfunction()
@@ -66,3 +68,4 @@ ADD_MWCAS_BENCH_TEST("worker_cas_test")
 ADD_MWCAS_BENCH_TEST("deque_mwcas_test")
 # ADD_MWCAS_BENCH_TEST("deque_pmwcas_test")
 ADD_MWCAS_BENCH_TEST("deque_mutex_test")
+ADD_MWCAS_BENCH_TEST("deque_cas_test")
