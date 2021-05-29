@@ -10,9 +10,9 @@
 #include <vector>
 
 #include "common.hpp"
-#include "worker.hpp"
+#include "worker_cas_base.hpp"
 
-class WorkerSingleCAS : public Worker
+class WorkerSingleCAS : public WorkerCASBase
 {
  protected:
   /*################################################################################################
@@ -44,7 +44,7 @@ class WorkerSingleCAS : public Worker
       const size_t operation_counts,
       ZipfGenerator &zipf_engine,
       const size_t random_seed = 0)
-      : Worker{target_fields, mwcas_target_num, operation_counts, zipf_engine, random_seed}
+      : WorkerCASBase{target_fields, mwcas_target_num, operation_counts, zipf_engine, random_seed}
   {
   }
 };

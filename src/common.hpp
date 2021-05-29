@@ -11,8 +11,10 @@
  */
 enum Operation
 {
-  kRead,
-  kWrite
+  kFront,
+  kBack,
+  kPush,
+  kPop
 };
 
 /**
@@ -23,7 +25,10 @@ enum BenchTarget
 {
   kOurs,
   kPMwCAS,
-  kSingleCAS
+  kSingleCAS,
+  kQueueCAS,
+  kQueueMwCAS,
+  kQueueMutex
 };
 
 #ifdef MWCAS_BENCH_MAX_FIELD_NUM
