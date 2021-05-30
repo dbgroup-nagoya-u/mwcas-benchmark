@@ -6,8 +6,8 @@
 #include <atomic>
 #include <shared_mutex>
 
+#include "common.hpp"
 #include "memory/manager/tls_based_memory_manager.hpp"
-#include "queue.hpp"
 
 namespace dbgroup::container
 {
@@ -15,7 +15,7 @@ namespace dbgroup::container
  * @brief A class to implement a thread-safe queue by using C++ CAS operations.
  *
  */
-class QueueCAS : public Queue
+class QueueCAS
 {
  private:
   /**
@@ -49,7 +49,7 @@ class QueueCAS : public Queue
    *
    * The object uses C++ CAS operations to perform thread-safe push/pop operations.
    */
-  QueueCAS() : Queue{}, gc_{kGCInterval}
+  QueueCAS() : gc_{kGCInterval}
   {
     auto dummy_node = new Node{};
     front_ = dummy_node;
@@ -73,7 +73,7 @@ class QueueCAS : public Queue
    *##############################################################################################*/
 
   T
-  front() override
+  front()
   {
     const auto guard = gc_.CreateEpochGuard();
 
@@ -83,7 +83,7 @@ class QueueCAS : public Queue
   }
 
   T
-  back() override
+  back()
   {
     const auto guard = gc_.CreateEpochGuard();
 
@@ -91,7 +91,7 @@ class QueueCAS : public Queue
   }
 
   void
-  push(const T x) override
+  push(const T x)
   {
     const auto guard = gc_.CreateEpochGuard();
 
@@ -123,7 +123,7 @@ class QueueCAS : public Queue
   }
 
   void
-  pop() override
+  pop()
   {
     const auto guard = gc_.CreateEpochGuard();
 
@@ -153,7 +153,7 @@ class QueueCAS : public Queue
   }
 
   bool
-  empty() override
+  empty()
   {
     const auto guard = gc_.CreateEpochGuard();
 
@@ -162,7 +162,7 @@ class QueueCAS : public Queue
   }
 
   bool
-  IsValid() const override
+  IsValid() const
   {
     auto prev_node = front_.load(mo_relax);
     auto current_node = prev_node->next.load(mo_relax);

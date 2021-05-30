@@ -3,9 +3,9 @@
 
 #pragma once
 
+#include "common.hpp"
 #include "memory/manager/tls_based_memory_manager.hpp"
 #include "mwcas/mwcas_descriptor.hpp"
-#include "queue.hpp"
 
 namespace dbgroup::container
 {
@@ -16,7 +16,7 @@ using ::dbgroup::atomic::mwcas::ReadMwCASField;
  * @brief A class to implement a thread-safe queue by using our MwCAS library.
  *
  */
-class QueueMwCAS : public Queue
+class QueueMwCAS
 {
  private:
   /**
@@ -50,7 +50,7 @@ class QueueMwCAS : public Queue
    *
    * The object uses our MwCAS library to perform thread-safe push/pop operations.
    */
-  QueueMwCAS() : Queue{}, gc_{kGCInterval}
+  QueueMwCAS() : gc_{kGCInterval}
   {
     auto dummy_node = new Node{};
     front_ = dummy_node;
@@ -74,7 +74,7 @@ class QueueMwCAS : public Queue
    *##############################################################################################*/
 
   T
-  front() override
+  front()
   {
     const auto guard = gc_.CreateEpochGuard();
 
@@ -84,7 +84,7 @@ class QueueMwCAS : public Queue
   }
 
   T
-  back() override
+  back()
   {
     const auto guard = gc_.CreateEpochGuard();
 
@@ -92,7 +92,7 @@ class QueueMwCAS : public Queue
   }
 
   void
-  push(const T x) override
+  push(const T x)
   {
     const auto guard = gc_.CreateEpochGuard();
 
@@ -109,7 +109,7 @@ class QueueMwCAS : public Queue
   }
 
   void
-  pop() override
+  pop()
   {
     const auto guard = gc_.CreateEpochGuard();
 
@@ -133,7 +133,7 @@ class QueueMwCAS : public Queue
   }
 
   bool
-  empty() override
+  empty()
   {
     const auto guard = gc_.CreateEpochGuard();
 
@@ -142,7 +142,7 @@ class QueueMwCAS : public Queue
   }
 
   bool
-  IsValid() const override
+  IsValid() const
   {
     auto prev_node = front_;
     auto current_node = prev_node->next;

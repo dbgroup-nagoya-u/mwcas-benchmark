@@ -5,7 +5,7 @@
 
 #include <shared_mutex>
 
-#include "queue.hpp"
+#include "common.hpp"
 
 namespace dbgroup::container
 {
@@ -13,7 +13,7 @@ namespace dbgroup::container
  * @brief A class to implement a thread-safe queue by using C++ mutex library.
  *
  */
-class QueueMutex : public Queue
+class QueueMutex
 {
  private:
   /**
@@ -47,7 +47,7 @@ class QueueMutex : public Queue
    *
    * The object uses C++ mutex library to perform thread-safe push/pop operations.
    */
-  QueueMutex() : Queue{}, mtx_{}
+  QueueMutex() : mtx_{}
   {
     auto dummy_node = new Node{};
     front_ = dummy_node;
@@ -67,7 +67,7 @@ class QueueMutex : public Queue
    *##############################################################################################*/
 
   T
-  front() override
+  front()
   {
     std::shared_lock<std::shared_mutex> guard{mtx_};
 
@@ -75,7 +75,7 @@ class QueueMutex : public Queue
   }
 
   T
-  back() override
+  back()
   {
     std::shared_lock<std::shared_mutex> guard{mtx_};
 
@@ -83,7 +83,7 @@ class QueueMutex : public Queue
   }
 
   void
-  push(const T x) override
+  push(const T x)
   {
     auto new_node = new Node{x, nullptr};
 
@@ -94,7 +94,7 @@ class QueueMutex : public Queue
   }
 
   void
-  pop() override
+  pop()
   {
     std::unique_lock<std::shared_mutex> guard{mtx_};
 
@@ -109,7 +109,7 @@ class QueueMutex : public Queue
   }
 
   bool
-  empty() override
+  empty()
   {
     std::shared_lock<std::shared_mutex> guard{mtx_};
 
@@ -117,7 +117,7 @@ class QueueMutex : public Queue
   }
 
   bool
-  IsValid() const override
+  IsValid() const
   {
     auto prev_node = front_;
     auto current_node = prev_node->next;

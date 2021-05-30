@@ -26,7 +26,6 @@
 #include "worker_pmwcas.hpp"
 #include "worker_queue.hpp"
 
-using dbgroup::container::Queue;
 using dbgroup::container::QueueCAS;
 using dbgroup::container::QueueMutex;
 using dbgroup::container::QueueMwCAS;
@@ -107,7 +106,7 @@ class MwCASBench
   std::unique_ptr<pmwcas::DescriptorPool> desc_pool_;
 
   /// a thread-safe queue
-  std::unique_ptr<Queue> queue_;
+  void *queue_;
 
   /*################################################################################################
    * Private utility functions
@@ -232,8 +231,14 @@ class MwCASBench
       case kSingleCAS:
         return new WorkerSingleCAS{target_fields_.get(), mwcas_target_num_, exec_num, zipf_engine_,
                                    random_seed};
+      case kQueueCAS:
+        return new WorkerQueue{reinterpret_cast<QueueCAS *>(queue_), exec_num, random_seed};
+      case kQueueMwCAS:
+        return new WorkerQueue{reinterpret_cast<QueueMwCAS *>(queue_), exec_num, random_seed};
+      case kQueueMutex:
+        return new WorkerQueue{reinterpret_cast<QueueMutex *>(queue_), exec_num, random_seed};
       default:
-        return new WorkerQueue{queue_.get(), exec_num, random_seed};
+        return nullptr;
     }
   }
 
@@ -326,22 +331,13 @@ class MwCASBench
             static_cast<uint32_t>(8192 * thread_num_), static_cast<uint32_t>(thread_num_));
         break;
       case kQueueCAS:
-        queue_ = std::make_unique<QueueCAS>();
-        for (size_t i = 0; i < 1000000; ++i) {
-          queue_->push(i);
-        }
+        queue_ = new QueueCAS{};
         break;
       case kQueueMwCAS:
-        queue_ = std::make_unique<QueueMwCAS>();
-        for (size_t i = 0; i < 1000000; ++i) {
-          queue_->push(i);
-        }
+        queue_ = new QueueMwCAS{};
         break;
       case kQueueMutex:
-        queue_ = std::make_unique<QueueMutex>();
-        for (size_t i = 0; i < 1000000; ++i) {
-          queue_->push(i);
-        }
+        queue_ = new QueueMutex{};
         break;
       default:
         break;

@@ -10,15 +10,13 @@
 #include <vector>
 
 #include "common.hpp"
-#include "container/queue.hpp"
 #include "worker.hpp"
-
-using ::dbgroup::container::Queue;
 
 /**
  * @brief An abstract class for a worker thread for benchmarking.
  *
  */
+template <class Queue>
 class WorkerQueue : public Worker
 {
  private:
