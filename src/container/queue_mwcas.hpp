@@ -96,7 +96,7 @@ class QueueMwCAS : public Queue
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    auto new_node = new Node{T{x}, nullptr};
+    auto new_node = new Node{x, nullptr};
     while (true) {
       auto tail_node = ReadMwCASField<Node*>(&back_);
 

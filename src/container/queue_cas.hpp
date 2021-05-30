@@ -27,45 +27,17 @@ class QueueCAS : public Queue
     const T elem{};
 
     /// a previous node of a queue
-    Node* next{nullptr};
+    std::atomic<Node*> next{nullptr};
   };
 
   /// a dummy node to represent the tail of a queue
-  Node back_;
+  std::atomic<Node*> back_;
 
   /// a dummy node to represent the head of a queue
-  Node front_;
+  std::atomic<Node*> front_;
 
   /// a garbage collector for deleted nodes in a queue
   ::dbgroup::memory::manager::TLSBasedMemoryManager<Node> gc_;
-
-  /**
-   * @brief Load a node pointer from the specified address atomically.
-   *
-   * @param addr a target address
-   * @return Node* a loaded node pointer
-   */
-  static Node*
-  LoadByCAS(void* addr)
-  {
-    return reinterpret_cast<std::atomic<Node*>*>(addr)->load(mo_relax);
-  }
-
-  /**
-   * @brief Perform a CAS operation with the specified parameters.
-   *
-   * @param addr a target address
-   * @param old_node an expected node address and modified when failed
-   * @param new_node an desired node address
-   * @retval true if CAS succeeded
-   * @retval false if CAS failed
-   */
-  static bool
-  PerformCAS(void* addr, Node** old_node, Node* new_node)
-  {
-    return reinterpret_cast<std::atomic<Node*>*>(addr)->compare_exchange_weak(*old_node, new_node,
-                                                                              mo_relax);
-  }
 
  public:
   /*################################################################################################
@@ -77,7 +49,12 @@ class QueueCAS : public Queue
    *
    * The object uses C++ CAS operations to perform thread-safe push/pop operations.
    */
-  QueueCAS() : Queue{}, back_{T{}, &front_}, front_{T{}, &back_}, gc_{kGCInterval} {}
+  QueueCAS() : Queue{}, gc_{kGCInterval}
+  {
+    auto dummy_node = new Node{};
+    front_ = dummy_node;
+    back_ = dummy_node;
+  }
 
   /**
    * @brief Destroy the QueueCAS object
@@ -88,6 +65,7 @@ class QueueCAS : public Queue
     while (!empty()) {
       pop();
     }
+    delete front_;
   }
 
   /*################################################################################################
@@ -99,7 +77,9 @@ class QueueCAS : public Queue
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    return LoadByCAS(&(front_.next))->elem;
+    const auto dummy_node = front_.load(mo_relax);
+    const auto head_node = dummy_node->next.load(mo_relax);
+    return (head_node == nullptr) ? T{} : head_node->elem;
   }
 
   T
@@ -107,7 +87,7 @@ class QueueCAS : public Queue
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    return LoadByCAS(&(back_.next))->elem;
+    return back_.load(mo_relax)->elem;
   }
 
   void
@@ -115,33 +95,30 @@ class QueueCAS : public Queue
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    auto old_node = LoadByCAS(&(back_.next));
-    auto new_node = new Node{T{x}, &back_};
-    auto prev_node = &back_;
+    auto new_node = new Node{x, nullptr};
 
-    // swap a backwars pointer
     while (true) {
-      if (PerformCAS(&(old_node->next), &prev_node, new_node)) {
-        break;
-      }
-      if (prev_node != nullptr && prev_node != &back_) {
-        // another thread has pushed a new node
-        old_node = prev_node;
-        prev_node = &back_;
-      } else if (prev_node == nullptr) {
-        // another thread has popped a target node
-        old_node = LoadByCAS(&(back_.next));
-        prev_node = &back_;
-      }
-      // if prev_node is not changed, CAS is failed due to its weak property
-    }
+      auto tail_node = back_.load(mo_relax);
+      auto null_node = tail_node->next.load(mo_relax);
 
-    // swap a tail pointer
-    while (true) {
-      auto tmp_old = old_node;
-      if (PerformCAS(&(back_.next), &tmp_old, new_node)) {
-        return;
+      if (null_node != nullptr) {
+        // if tail_node has the next node, another thread is pushing an element concurrently
+        back_.compare_exchange_weak(tail_node, null_node, mo_relax);
+        continue;
       }
+
+      if (!tail_node->next.compare_exchange_weak(null_node, new_node, mo_relax)) {
+        // if CAS failed, another thread is pushing an element concurrently
+        continue;
+      }
+
+      while (!back_.compare_exchange_weak(tail_node, new_node, mo_relax)) {
+        if (tail_node == new_node) {
+          break;
+        }
+      }
+
+      return;
     }
   }
 
@@ -150,44 +127,29 @@ class QueueCAS : public Queue
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    auto old_node = LoadByCAS(&(front_.next));
-
     while (true) {
-      if (old_node == &back_) {
-        // if old_node is a tail node, the queue is empty
+      auto dummy_node = front_.load(mo_relax);
+      auto head_node = dummy_node->next.load(mo_relax);
+
+      if (head_node == nullptr) {
+        // if head_node is null, the queue is empty
         return;
       }
 
-      auto new_node = LoadByCAS(&(old_node->next));
-      if (new_node != nullptr && new_node != &back_) {
-        // if new_node is not a tail node, just swap a head
-        if (PerformCAS(&(front_.next), &old_node, new_node)) {
-          break;
-        }
-      } else if (new_node == nullptr) {
-        // if new_node is null, retry because another thread has popped it
-        old_node = LoadByCAS(&(front_.next));
-      } else {  // new_node is a tail node, and it is required to swap head/tail nodes
-        // first of all, swap the pointer of old_node to linearize push/pop operations
-        auto tmp_node = &back_;
-        if (!PerformCAS(&(old_node->next), &tmp_node, nullptr)) {
-          // if failed, retry because another thread has modified a queue
-          old_node = LoadByCAS(&(front_.next));
-          continue;
-        }
+      auto tail_node = back_.load(mo_relax);
+      if (tail_node == dummy_node) {
+        // the queue is not empty but has the same head/tail node,
+        // another thread is pushing an element concurrently
+        auto current_tail = tail_node->next.load(mo_relax);
+        back_.compare_exchange_weak(dummy_node, current_tail, mo_relax);
+        continue;
+      }
 
-        // swap head/tail nodes
-        tmp_node = old_node;
-        while (!PerformCAS(&(front_.next), &tmp_node, &back_)) {
-          tmp_node = old_node;
-        }
-        while (!PerformCAS(&(back_.next), &tmp_node, &front_)) {
-          tmp_node = old_node;
-        }
+      if (front_.compare_exchange_weak(dummy_node, head_node, mo_relax)) {
+        gc_.AddGarbage(dummy_node);
+        return;
       }
     }
-
-    gc_.AddGarbage(old_node);
   }
 
   bool
@@ -195,21 +157,22 @@ class QueueCAS : public Queue
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    return LoadByCAS(&(front_.next)) == &back_;
+    const auto dummy_node = front_.load(mo_relax);
+    return dummy_node->next.load(mo_relax) == nullptr;
   }
 
   bool
   IsValid() const override
   {
-    auto prev_node = &front_;
-    auto current_node = prev_node->next;
+    auto prev_node = front_.load(mo_relax);
+    auto current_node = prev_node->next.load(mo_relax);
 
-    while (current_node != &back_) {
+    while (current_node != nullptr) {
       prev_node = current_node;
-      current_node = current_node->next;
+      current_node = current_node->next.load(mo_relax);
     }
 
-    return current_node->next == prev_node;
+    return prev_node == back_.load(mo_relax);
   }
 };
 

@@ -85,7 +85,7 @@ class QueueMutex : public Queue
   void
   push(const T x) override
   {
-    auto new_node = new Node{T{x}, nullptr};
+    auto new_node = new Node{x, nullptr};
 
     std::unique_lock<std::shared_mutex> guard{mtx_};
 
