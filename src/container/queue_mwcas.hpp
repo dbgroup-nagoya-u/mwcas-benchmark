@@ -32,10 +32,10 @@ class QueueMwCAS : public Queue
   };
 
   /// a dummy node to represent the tail of a queue
-  Node front_;
+  Node* front_;
 
   /// a dummy node to represent the head of a queue
-  Node back_;
+  Node* back_;
 
   /// a garbage collector for deleted nodes in a queue
   ::dbgroup::memory::manager::TLSBasedMemoryManager<Node> gc_;
@@ -50,7 +50,12 @@ class QueueMwCAS : public Queue
    *
    * The object uses our MwCAS library to perform thread-safe push/pop operations.
    */
-  QueueMwCAS() : Queue{}, front_{T{}, &back_}, back_{T{}, &front_}, gc_{kGCInterval} {}
+  QueueMwCAS() : Queue{}, gc_{kGCInterval}
+  {
+    auto dummy_node = new Node{};
+    front_ = dummy_node;
+    back_ = dummy_node;
+  }
 
   /**
    * @brief Destroy the QueueMwCAS object
@@ -61,6 +66,7 @@ class QueueMwCAS : public Queue
     while (!empty()) {
       pop();
     }
+    delete front_;
   }
 
   /*################################################################################################
@@ -72,7 +78,9 @@ class QueueMwCAS : public Queue
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    return ReadMwCASField<Node*>(&(front_.next))->elem;
+    const auto dummy_node = ReadMwCASField<Node*>(&front_);
+    const auto head_node = ReadMwCASField<Node*>(&(dummy_node->next));
+    return (head_node == nullptr) ? T{} : head_node->elem;
   }
 
   T
@@ -80,7 +88,7 @@ class QueueMwCAS : public Queue
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    return ReadMwCASField<Node*>(&(back_.next))->elem;
+    return ReadMwCASField<Node*>(&back_)->elem;
   }
 
   void
@@ -88,18 +96,15 @@ class QueueMwCAS : public Queue
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    auto old_node = ReadMwCASField<Node*>(&(back_.next));
-    auto new_node = new Node{T{x}, &back_};
-
+    auto new_node = new Node{T{x}, nullptr};
     while (true) {
-      MwCASDescriptor desc{};
-      desc.AddMwCASTarget(&(back_.next), old_node, new_node);
-      desc.AddMwCASTarget(&(old_node->next), &back_, new_node);
+      auto tail_node = ReadMwCASField<Node*>(&back_);
 
-      if (desc.MwCAS()) {
-        break;
-      }
-      old_node = ReadMwCASField<Node*>(&(back_.next));
+      MwCASDescriptor desc{};
+      desc.AddMwCASTarget(&back_, tail_node, new_node);
+      desc.AddMwCASTarget(&(tail_node->next), static_cast<Node*>(nullptr), new_node);
+
+      if (desc.MwCAS()) return;
     }
   }
 
@@ -108,33 +113,23 @@ class QueueMwCAS : public Queue
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    auto old_node = ReadMwCASField<Node*>(&(front_.next));
-
     while (true) {
-      if (old_node == &back_) {
-        // if old_node is a back node, the queue is empty
+      auto dummy_node = ReadMwCASField<Node*>(&front_);
+      auto head_node = ReadMwCASField<Node*>(&(dummy_node->next));
+
+      if (head_node == nullptr) {
+        // if new_node is null, the queue is empty
         return;
       }
 
-      auto new_node = ReadMwCASField<Node*>(&(old_node->next));
-
       MwCASDescriptor desc{};
-      if (new_node != &back_) {
-        // if new_node is not a back node, just swap the front
-        desc.AddMwCASTarget(&(front_.next), old_node, new_node);
-      } else {
-        // if new_node is a back node, it is required to swap the front/back nodes
-        desc.AddMwCASTarget(&(front_.next), old_node, &back_);
-        desc.AddMwCASTarget(&(back_.next), old_node, &front_);
-      }
+      desc.AddMwCASTarget(&front_, dummy_node, head_node);
 
       if (desc.MwCAS()) {
-        break;
+        gc_.AddGarbage(dummy_node);
+        return;
       }
-      old_node = ReadMwCASField<Node*>(&(front_.next));
     }
-
-    gc_.AddGarbage(old_node);
   }
 
   bool
@@ -142,21 +137,22 @@ class QueueMwCAS : public Queue
   {
     const auto guard = gc_.CreateEpochGuard();
 
-    return ReadMwCASField<Node*>(&(front_.next)) == &back_;
+    auto dummy_node = ReadMwCASField<Node*>(&front_);
+    return ReadMwCASField<Node*>(&(dummy_node->next)) == nullptr;
   }
 
   bool
   IsValid() const override
   {
-    auto prev_node = &front_;
+    auto prev_node = front_;
     auto current_node = prev_node->next;
 
-    while (current_node != &back_) {
+    while (current_node != nullptr) {
       prev_node = current_node;
       current_node = current_node->next;
     }
 
-    return current_node->next == prev_node;
+    return prev_node == back_;
   }
 };
 
