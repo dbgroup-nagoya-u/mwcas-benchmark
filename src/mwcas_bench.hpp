@@ -301,7 +301,8 @@ class MwCASBench
         skew_parameter_{skew_parameter},
         random_seed_{random_seed},
         measure_throughput_{measure_throughput},
-        zipf_engine_{num_field, skew_parameter}
+        zipf_engine_{num_field, skew_parameter},
+        queue_{nullptr}
   {
     // prepare shared target fields
     target_fields_ = std::make_unique<size_t[]>(target_field_num_);
