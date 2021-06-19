@@ -10,9 +10,9 @@
 
 #include "common.hpp"
 #include "mwcas/mwcas.h"
-#include "worker.hpp"
+#include "worker_cas_base.hpp"
 
-class WorkerPMwCAS : public Worker
+class WorkerPMwCAS : public WorkerCASBase
 {
  private:
   pmwcas::DescriptorPool& desc_pool_;
@@ -54,7 +54,7 @@ class WorkerPMwCAS : public Worker
       const size_t operation_counts,
       ZipfGenerator& zipf_engine,
       const size_t random_seed = 0)
-      : Worker{target_fields, mwcas_target_num, operation_counts, zipf_engine, random_seed},
+      : WorkerCASBase{target_fields, mwcas_target_num, operation_counts, zipf_engine, random_seed},
         desc_pool_{desc_pool}
   {
   }

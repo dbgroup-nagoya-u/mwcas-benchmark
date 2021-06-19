@@ -5,7 +5,7 @@
 
 #include <shared_mutex>
 
-#include "queue.hpp"
+#include "common.hpp"
 
 namespace dbgroup::container
 {
@@ -13,7 +13,7 @@ namespace dbgroup::container
  * @brief A class to implement a thread-safe queue by using C++ mutex library.
  *
  */
-class QueueMutex : public Queue
+class QueueMutex
 {
  private:
   /**
@@ -26,16 +26,16 @@ class QueueMutex : public Queue
 
     /// a previous node of a queue
     Node* next{nullptr};
-
-    /// a mutex for thread-safe modification
-    std::shared_mutex mtx{};
   };
 
-  /// a dummy node to represent the tail of a queue
-  Node front_;
+  /// a pointer to the tail of a queue
+  Node* front_;
 
-  /// a dummy node to represent the head of a queue
-  Node back_;
+  /// a pointer to the head of a queue
+  Node* back_;
+
+  /// a mutex object for read/write locking
+  std::shared_mutex mtx_;
 
  public:
   /*################################################################################################
@@ -47,13 +47,19 @@ class QueueMutex : public Queue
    *
    * The object uses C++ mutex library to perform thread-safe push/pop operations.
    */
-  QueueMutex() : Queue{}, front_{T{}, &back_}, back_{T{}, &front_} {}
+  QueueMutex() : mtx_{}
+  {
+    auto dummy_node = new Node{};
+    front_ = dummy_node;
+    back_ = dummy_node;
+  }
 
   ~QueueMutex()
   {
     while (!empty()) {
       pop();
     }
+    delete front_;
   }
 
   /*################################################################################################
@@ -61,96 +67,67 @@ class QueueMutex : public Queue
    *##############################################################################################*/
 
   T
-  front() override
+  front()
   {
-    std::shared_lock<std::shared_mutex> guard{front_.mtx};
+    std::shared_lock<std::shared_mutex> guard{mtx_};
 
-    return front_.next->elem;
+    return (front_->next == nullptr) ? T{} : front_->next->elem;
   }
 
   T
-  back() override
+  back()
   {
-    std::shared_lock<std::shared_mutex> guard{back_.mtx};
+    std::shared_lock<std::shared_mutex> guard{mtx_};
 
-    return back_.next->elem;
+    return back_->elem;
   }
 
   void
-  push(const T x) override
+  push(const T x)
   {
-    auto new_node = new Node{T{x}, &back_};
+    auto new_node = new Node{x, nullptr};
 
-    while (true) {
-      std::unique_lock<std::shared_mutex> guard{back_.mtx};
+    std::unique_lock<std::shared_mutex> guard{mtx_};
 
-      auto old_node = back_.next;
-
-      if (!old_node->mtx.try_lock()) {
-        // if old_node cannot be locked, another thread performs push/pop
-        continue;
-      }
-
-      back_.next = new_node;
-      old_node->next = new_node;
-      old_node->mtx.unlock();
-      return;
-    }
+    back_->next = new_node;
+    back_ = new_node;
   }
 
   void
-  pop() override
+  pop()
   {
-    while (true) {
-      std::unique_lock<std::shared_mutex> front_guard{front_.mtx};
+    std::unique_lock<std::shared_mutex> guard{mtx_};
 
-      auto old_node = front_.next;
-      if (old_node == &back_) {
-        // if old_node is a back node, the queue is empty
-        return;
-      }
-
-      if (!old_node->mtx.try_lock()) {
-        // if old_node cannot be locked, another thread performs push/pop
-        continue;
-      }
-
-      auto new_node = old_node->next;
-      if (new_node != &back_) {
-        // if new_node is not a back node, just swap the front
-        front_.next = new_node;
-      } else {
-        // if new_node is a back node, it is required to swap the front/back nodes
-        std::unique_lock<std::shared_mutex> back_guard{back_.mtx};
-        front_.next = &back_;
-        back_.next = &front_;
-      }
-
-      delete old_node;
+    auto head_node = front_->next;
+    if (head_node == nullptr) {
+      // if old_node is null, the queue is empty
       return;
     }
+
+    delete front_;
+    front_ = head_node;
   }
 
   bool
-  empty() override
+  empty()
   {
-    std::shared_lock<std::shared_mutex> guard{front_.mtx};
+    std::shared_lock<std::shared_mutex> guard{mtx_};
 
-    return front_.next == &back_;
+    return front_->next == nullptr;
   }
 
   bool
-  IsValid() const override
+  IsValid() const
   {
-    auto prev_node = &front_;
+    auto prev_node = front_;
     auto current_node = prev_node->next;
 
-    while (current_node != &back_) {
+    while (current_node != nullptr) {
       prev_node = current_node;
       current_node = current_node->next;
     }
 
-    return current_node->next == prev_node;
+    return prev_node == back_;
   }
 };
 

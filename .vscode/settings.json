@@ -126,6 +126,7 @@
     "future": "cpp",
     "variant": "cpp",
     "shared_mutex": "cpp",
-    "bitset": "cpp"
+    "bitset": "cpp",
+    "regex": "cpp"
   },
 }
