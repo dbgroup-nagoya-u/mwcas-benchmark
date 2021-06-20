@@ -48,15 +48,6 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
     cpp_utility
     memory_manager
   )
-  add_dependencies(
-    ${MWCAS_BENCH_TEST_TARGET}
-    mwcas
-    pmwcas_static
-    gflags
-    gtest_main
-    cpp_utility
-    memory_manager
-  )
   add_test(NAME ${MWCAS_BENCH_TEST_TARGET} COMMAND $<TARGET_FILE:${MWCAS_BENCH_TEST_TARGET}>)
 endfunction()
 

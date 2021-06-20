@@ -123,13 +123,6 @@ target_link_libraries(
   cpp_utility
   memory_manager
 )
-add_dependencies(
-  mwcas
-  pmwcas_static
-  gflags
-  cpp_utility
-  memory_manager
-)
 
 # build unit tests if required
 option(MWCAS_BENCH_BUILD_TESTS, "Build unit tests" OFF)
