@@ -407,6 +407,17 @@ class MwCASBench
       LogLatency(results);
     }
 
+    if (target == BenchTarget::kOurs) {
+      size_t total_execution_time = 0;
+      size_t total_spinlock_time = 0;
+      for (auto &&worker : results) {
+        total_execution_time += worker->GetTotalExecTime();
+        total_spinlock_time += worker->spinlock_time_;
+      }
+
+      std::cout << static_cast<double>(total_spinlock_time) / total_execution_time << std::endl;
+    }
+
     for (auto &&worker : results) {
       delete worker;
     }

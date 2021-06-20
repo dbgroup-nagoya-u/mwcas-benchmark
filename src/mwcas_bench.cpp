@@ -73,7 +73,7 @@ DEFINE_validator(skew_parameter, &ValidatePositiveVal);
 DEFINE_string(seed, "", "A random seed to control reproducibility");
 DEFINE_validator(seed, &ValidateRandomSeed);
 DEFINE_bool(ours, true, "Use MwCAS library (DB Group @ Nagoya Univ.) as a benchmark target");
-DEFINE_bool(pmwcas, true, "Use PMwCAS library (Microsoft) as a benchmark target");
+DEFINE_bool(pmwcas, false, "Use PMwCAS library (Microsoft) as a benchmark target");
 DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
 DEFINE_bool(queue_cas, false, "Use a queue based on single CAS AS as a benchmark target");
 DEFINE_bool(queue_mwcas, false, "Use a queue based on MwCAS AS as a benchmark target");

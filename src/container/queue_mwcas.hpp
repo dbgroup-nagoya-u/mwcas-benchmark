@@ -104,7 +104,7 @@ class QueueMwCAS
       desc.AddMwCASTarget(&back_, tail_node, new_node);
       desc.AddMwCASTarget(&(tail_node->next), static_cast<Node*>(nullptr), new_node);
 
-      if (desc.MwCAS()) return;
+      if (desc.MwCAS().first) return;
     }
   }
 
@@ -125,7 +125,7 @@ class QueueMwCAS
       MwCASDescriptor desc{};
       desc.AddMwCASTarget(&front_, dummy_node, head_node);
 
-      if (desc.MwCAS()) {
+      if (desc.MwCAS().first) {
         gc_.AddGarbage(dummy_node);
         return;
       }

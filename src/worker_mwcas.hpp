@@ -30,7 +30,9 @@ class WorkerMwCAS : public WorkerCASBase
         const auto new_val = old_val + 1;
         desc.AddMwCASTarget(addr, old_val, new_val);
       }
-      if (desc.MwCAS()) break;
+      auto [success, spinlock_time] = desc.MwCAS();
+      spinlock_time_ += spinlock_time;
+      if (success) break;
     }
   }
 
