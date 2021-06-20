@@ -14,39 +14,20 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "container/queue_pmwcas.hpp"
 
-#include <cstdint>
+using Key = uint64_t;
+using Queue_t = ::dbgroup::container::QueuePMwCAS;
 
-/**
- * @brief A list of MwCAS operations.
- *
- */
-enum Operation
+#include "queue_test.hpp"
+
+void
+QueueFixture::SetUp()
 {
-  kFront,
-  kBack,
-  kPush,
-  kPop
-};
+  queue_ = std::make_unique<Queue_t>(kThreadNum);
+}
 
-/**
- * @brief A list of MwCAS implementations.
- *
- */
-enum BenchTarget
+void
+QueueFixture::TearDown()
 {
-  kOurs,
-  kPMwCAS,
-  kSingleCAS,
-  kQueueCAS,
-  kQueueMwCAS,
-  kQueueMutex
-};
-
-#ifdef MWCAS_BENCH_MAX_FIELD_NUM
-/// the maximum number of MwCAS targets
-constexpr size_t kMaxTargetNum = MWCAS_BENCH_MAX_FIELD_NUM;
-#else
-constexpr size_t kMaxTargetNum = 8;
-#endif
+}

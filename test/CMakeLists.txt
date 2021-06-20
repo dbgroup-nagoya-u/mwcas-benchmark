@@ -33,7 +33,7 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
   )
   target_include_directories(
     ${MWCAS_BENCH_TEST_TARGET} PRIVATE
-    "${MWCAS_BENCH_SOURCE_DIR}"
+    "${MWCAS_BENCH_SOURCE_DIR}/src"
     "${PMWCAS_SOURCE_DIR}/"
     "${PMWCAS_SOURCE_DIR}/src"
     "${PMWCAS_SOURCE_DIR}/include"
@@ -42,18 +42,11 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
     ${MWCAS_BENCH_TEST_TARGET} PRIVATE
     mwcas
     pmwcas_static
-    gflags
-    gtest_main
     rt
-    cpp_utility
-  )
-  add_dependencies(
-    ${MWCAS_BENCH_TEST_TARGET}
-    mwcas
-    pmwcas_static
-    cpp_utility
     gflags
     gtest_main
+    cpp_utility
+    memory_manager
   )
   add_test(NAME ${MWCAS_BENCH_TEST_TARGET} COMMAND $<TARGET_FILE:${MWCAS_BENCH_TEST_TARGET}>)
 endfunction()
@@ -62,3 +55,7 @@ endfunction()
 ADD_MWCAS_BENCH_TEST("worker_mwcas_test")
 ADD_MWCAS_BENCH_TEST("worker_pmwcas_test")
 ADD_MWCAS_BENCH_TEST("worker_cas_test")
+ADD_MWCAS_BENCH_TEST("queue_mwcas_test")
+# ADD_MWCAS_BENCH_TEST("queue_pmwcas_test")
+ADD_MWCAS_BENCH_TEST("queue_mutex_test")
+ADD_MWCAS_BENCH_TEST("queue_cas_test")

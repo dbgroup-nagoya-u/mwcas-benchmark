@@ -1,5 +1,18 @@
-// Copyright (c) Database Group, Nagoya University. All rights reserved.
-// Licensed under the MIT license.
+/*
+ * Copyright 2021 Database Group, Nagoya University
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -17,10 +30,18 @@
 #include <utility>
 #include <vector>
 
+#include "container/queue_cas.hpp"
+#include "container/queue_mutex.hpp"
+#include "container/queue_mwcas.hpp"
 #include "worker.hpp"
 #include "worker_cas.hpp"
 #include "worker_mwcas.hpp"
 #include "worker_pmwcas.hpp"
+#include "worker_queue.hpp"
+
+using dbgroup::container::QueueCAS;
+using dbgroup::container::QueueMutex;
+using dbgroup::container::QueueMwCAS;
 
 /*##################################################################################################
  * Global variables
@@ -96,6 +117,9 @@ class MwCASBench
 
   /// PMwCAS descriptor pool
   std::unique_ptr<pmwcas::DescriptorPool> desc_pool_;
+
+  /// a thread-safe queue
+  void *queue_;
 
   /*################################################################################################
    * Private utility functions
@@ -220,6 +244,12 @@ class MwCASBench
       case kSingleCAS:
         return new WorkerSingleCAS{target_fields_.get(), mwcas_target_num_, exec_num, zipf_engine_,
                                    random_seed};
+      case kQueueCAS:
+        return new WorkerQueue{reinterpret_cast<QueueCAS *>(queue_), exec_num, random_seed};
+      case kQueueMwCAS:
+        return new WorkerQueue{reinterpret_cast<QueueMwCAS *>(queue_), exec_num, random_seed};
+      case kQueueMutex:
+        return new WorkerQueue{reinterpret_cast<QueueMutex *>(queue_), exec_num, random_seed};
       default:
         return nullptr;
     }
@@ -284,7 +314,8 @@ class MwCASBench
         skew_parameter_{skew_parameter},
         random_seed_{random_seed},
         measure_throughput_{measure_throughput},
-        zipf_engine_{num_field, skew_parameter}
+        zipf_engine_{num_field, skew_parameter},
+        queue_{nullptr}
   {
     // prepare shared target fields
     target_fields_ = std::make_unique<size_t[]>(target_field_num_);
@@ -305,12 +336,25 @@ class MwCASBench
   void
   RunMwCASBench(const BenchTarget target)
   {
-    if (target == BenchTarget::kPMwCAS) {
-      // prepare PMwCAS descriptor pool
-      pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
-                          pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
-      desc_pool_ = std::make_unique<pmwcas::DescriptorPool>(
-          static_cast<uint32_t>(8192 * thread_num_), static_cast<uint32_t>(thread_num_));
+    switch (target) {
+      case kPMwCAS:
+        // prepare PMwCAS descriptor pool
+        pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
+                            pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
+        desc_pool_ = std::make_unique<pmwcas::DescriptorPool>(
+            static_cast<uint32_t>(8192 * thread_num_), static_cast<uint32_t>(thread_num_));
+        break;
+      case kQueueCAS:
+        queue_ = new QueueCAS{};
+        break;
+      case kQueueMwCAS:
+        queue_ = new QueueMwCAS{};
+        break;
+      case kQueueMutex:
+        queue_ = new QueueMutex{};
+        break;
+      default:
+        break;
     }
 
     /*----------------------------------------------------------------------------------------------

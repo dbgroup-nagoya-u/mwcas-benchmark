@@ -16,37 +16,14 @@
 
 #pragma once
 
+#include <atomic>
+#include <cassert>
+#include <cstddef>
 #include <cstdint>
+#include <type_traits>
 
-/**
- * @brief A list of MwCAS operations.
- *
- */
-enum Operation
-{
-  kFront,
-  kBack,
-  kPush,
-  kPop
-};
+using T = uint64_t;
 
-/**
- * @brief A list of MwCAS implementations.
- *
- */
-enum BenchTarget
-{
-  kOurs,
-  kPMwCAS,
-  kSingleCAS,
-  kQueueCAS,
-  kQueueMwCAS,
-  kQueueMutex
-};
+static constexpr auto mo_relax = std::memory_order_relaxed;
 
-#ifdef MWCAS_BENCH_MAX_FIELD_NUM
-/// the maximum number of MwCAS targets
-constexpr size_t kMaxTargetNum = MWCAS_BENCH_MAX_FIELD_NUM;
-#else
-constexpr size_t kMaxTargetNum = 8;
-#endif
+static constexpr size_t kGCInterval = 1E3;

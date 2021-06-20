@@ -14,7 +14,7 @@ project(
 )
 
 # define source directories
-set(MWCAS_BENCH_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+set(MWCAS_BENCH_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
 # Set Compile Options
@@ -79,13 +79,21 @@ set(CPP_UTILITY_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/cpp-utility")
 add_subdirectory("${CPP_UTILITY_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
+# Configure our GC
+#--------------------------------------------------------------------------------------#
+
+set(MEMORY_MANAGER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/memory-manager")
+
+add_subdirectory("${MEMORY_MANAGER_SOURCE_DIR}")
+
+#--------------------------------------------------------------------------------------#
 # Build Benchmark
 #--------------------------------------------------------------------------------------#
 
 # build executable
 add_executable(
   mwcas_bench
-  "${MWCAS_BENCH_SOURCE_DIR}/mwcas_bench.cpp"
+  "${MWCAS_BENCH_SOURCE_DIR}/src/mwcas_bench.cpp"
 )
 target_compile_features(mwcas_bench PRIVATE "cxx_std_17")
 target_compile_options(
@@ -110,15 +118,10 @@ target_link_libraries(
   mwcas_bench PRIVATE
   mwcas
   pmwcas_static
-  gflags
   rt
-  cpp_utility
-)
-add_dependencies(
-  mwcas
-  pmwcas_static
-  cpp_utility
   gflags
+  cpp_utility
+  memory_manager
 )
 
 # build unit tests if required

@@ -1,5 +1,18 @@
-// Copyright (c) Database Group, Nagoya University. All rights reserved.
-// Licensed under the MIT license.
+/*
+ * Copyright 2021 Database Group, Nagoya University
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "mwcas_bench.hpp"
 
@@ -75,6 +88,9 @@ DEFINE_validator(seed, &ValidateRandomSeed);
 DEFINE_bool(ours, true, "Use MwCAS library (DB Group @ Nagoya Univ.) as a benchmark target");
 DEFINE_bool(pmwcas, true, "Use PMwCAS library (Microsoft) as a benchmark target");
 DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
+DEFINE_bool(queue_cas, false, "Use a queue based on single CAS AS as a benchmark target");
+DEFINE_bool(queue_mwcas, false, "Use a queue based on MwCAS AS as a benchmark target");
+DEFINE_bool(queue_mutex, false, "Use a queue based on C++ mutex AS as a benchmark target");
 DEFINE_bool(csv, false, "Output benchmark results as CSV format");
 DEFINE_bool(throughput, true, "true: measure throughput, false: measure latency");
 
@@ -107,6 +123,21 @@ main(int argc, char *argv[])
   if (FLAGS_single) {
     Log("** Run Single CAS...");
     bench.RunMwCASBench(BenchTarget::kSingleCAS);
+    Log("** Finish.");
+  }
+  if (FLAGS_queue_cas) {
+    Log("** Run queue benchmark with single CAS...");
+    bench.RunMwCASBench(BenchTarget::kQueueCAS);
+    Log("** Finish.");
+  }
+  if (FLAGS_queue_mwcas) {
+    Log("** Run queue benchmark with MwCAS...");
+    bench.RunMwCASBench(BenchTarget::kQueueMwCAS);
+    Log("** Finish.");
+  }
+  if (FLAGS_queue_mutex) {
+    Log("** Run queue benchmark with C++ mutex...");
+    bench.RunMwCASBench(BenchTarget::kQueueMutex);
     Log("** Finish.");
   }
   Log("==== End MwCAS Benchmark ====");
