@@ -2,6 +2,14 @@
 
 ![Unit Tests](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/workflows/Unit%20Tests/badge.svg?branch=main)
 
+## Tested Environment
+
+| Item | Value |
+| --- | --- |
+| OS | Ubuntu 20.04.2 LTS |
+| g++ | ver. 9.3.0 |
+| cmake | ver. 3.16.3 |
+
 ## Build
 
 ### Prerequisites
