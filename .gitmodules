@@ -4,10 +4,6 @@
 [submodule "external/pmwcas"]
 	path = external/pmwcas
 	url = https://github.com/microsoft/pmwcas.git
-[submodule "test/external/googletest"]
-	path = test/external/googletest
-	url = https://github.com/google/googletest.git
-	branch = master
 [submodule "external/cpp-utility"]
 	path = external/cpp-utility
 	url = https://github.com/dbgroup-nagoya-u/cpp-utility.git
