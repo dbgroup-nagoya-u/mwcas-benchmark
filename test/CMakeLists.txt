@@ -62,7 +62,6 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
     gflags
     gtest_main
     cpp_utility
-    memory_manager
   )
   add_test(NAME ${MWCAS_BENCH_TEST_TARGET} COMMAND $<TARGET_FILE:${MWCAS_BENCH_TEST_TARGET}>)
 endfunction()
@@ -71,7 +70,3 @@ endfunction()
 ADD_MWCAS_BENCH_TEST("worker_mwcas_test")
 ADD_MWCAS_BENCH_TEST("worker_pmwcas_test")
 ADD_MWCAS_BENCH_TEST("worker_cas_test")
-ADD_MWCAS_BENCH_TEST("queue_mwcas_test")
-# ADD_MWCAS_BENCH_TEST("queue_pmwcas_test")
-ADD_MWCAS_BENCH_TEST("queue_mutex_test")
-ADD_MWCAS_BENCH_TEST("queue_cas_test")

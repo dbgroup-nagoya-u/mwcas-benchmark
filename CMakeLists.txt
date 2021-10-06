@@ -79,14 +79,6 @@ set(CPP_UTILITY_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/cpp-utility")
 add_subdirectory("${CPP_UTILITY_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
-# Configure our GC
-#--------------------------------------------------------------------------------------#
-
-set(MEMORY_MANAGER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/memory-manager")
-
-add_subdirectory("${MEMORY_MANAGER_SOURCE_DIR}")
-
-#--------------------------------------------------------------------------------------#
 # Build Benchmark
 #--------------------------------------------------------------------------------------#
 
@@ -121,7 +113,6 @@ target_link_libraries(
   rt
   gflags
   cpp_utility
-  memory_manager
 )
 
 # build unit tests if required

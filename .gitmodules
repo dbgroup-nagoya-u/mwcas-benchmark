@@ -10,6 +10,3 @@
 [submodule "external/gflags"]
 	path = external/gflags
 	url = https://github.com/gflags/gflags.git
-[submodule "external/memory-manager"]
-	path = external/memory-manager
-	url = git@github.com:dbgroup-nagoya-u/memory-manager.git

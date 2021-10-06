@@ -30,18 +30,10 @@
 #include <utility>
 #include <vector>
 
-#include "container/queue_cas.hpp"
-#include "container/queue_mutex.hpp"
-#include "container/queue_mwcas.hpp"
 #include "worker.hpp"
 #include "worker_cas.hpp"
 #include "worker_mwcas.hpp"
 #include "worker_pmwcas.hpp"
-#include "worker_queue.hpp"
-
-using dbgroup::container::QueueCAS;
-using dbgroup::container::QueueMutex;
-using dbgroup::container::QueueMwCAS;
 
 /*##################################################################################################
  * Global variables
@@ -244,12 +236,6 @@ class MwCASBench
       case kSingleCAS:
         return new WorkerSingleCAS{target_fields_.get(), mwcas_target_num_, exec_num, zipf_engine_,
                                    random_seed};
-      case kQueueCAS:
-        return new WorkerQueue{reinterpret_cast<QueueCAS *>(queue_), exec_num, random_seed};
-      case kQueueMwCAS:
-        return new WorkerQueue{reinterpret_cast<QueueMwCAS *>(queue_), exec_num, random_seed};
-      case kQueueMutex:
-        return new WorkerQueue{reinterpret_cast<QueueMutex *>(queue_), exec_num, random_seed};
       default:
         return nullptr;
     }
@@ -343,15 +329,6 @@ class MwCASBench
                             pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
         desc_pool_ = std::make_unique<pmwcas::DescriptorPool>(
             static_cast<uint32_t>(8192 * thread_num_), static_cast<uint32_t>(thread_num_));
-        break;
-      case kQueueCAS:
-        queue_ = new QueueCAS{};
-        break;
-      case kQueueMwCAS:
-        queue_ = new QueueMwCAS{};
-        break;
-      case kQueueMutex:
-        queue_ = new QueueMutex{};
         break;
       default:
         break;
