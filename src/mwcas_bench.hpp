@@ -31,9 +31,6 @@
 #include <vector>
 
 #include "worker.hpp"
-#include "worker_cas.hpp"
-#include "worker_mwcas.hpp"
-#include "worker_pmwcas.hpp"
 
 /*##################################################################################################
  * Global variables
@@ -73,8 +70,16 @@ Log(const char *message)
  * @brief A class to run MwCAS benchmark.
  *
  */
+template <class MwCASImplementation>
 class MwCASBench
 {
+  /*################################################################################################
+   * Type aliases
+   *##############################################################################################*/
+
+  using Worker_t = Worker<MwCASImplementation>;
+  using ZipfGenerator = ::dbgroup::random::zipf::ZipfGenerator;
+
  private:
   /*################################################################################################
    * Internal member variables
@@ -107,12 +112,6 @@ class MwCASBench
   /// a random engine according to Zipf's law
   ZipfGenerator zipf_engine_;
 
-  /// PMwCAS descriptor pool
-  std::unique_ptr<pmwcas::DescriptorPool> desc_pool_;
-
-  /// a thread-safe queue
-  void *queue_;
-
   /*################################################################################################
    * Private utility functions
    *##############################################################################################*/
@@ -123,7 +122,7 @@ class MwCASBench
    * @param workers worker pointers that hold benchmark results
    */
   void
-  LogThroughput(const std::vector<Worker *> &workers) const
+  LogThroughput(const std::vector<Worker_t *> &workers) const
   {
     size_t avg_nano_time = 0;
     for (auto &&worker : workers) {
@@ -146,7 +145,7 @@ class MwCASBench
    * @param workers worker pointers that hold benchmark results
    */
   void
-  LogLatency(const std::vector<Worker *> &workers) const
+  LogLatency(const std::vector<Worker_t *> &workers) const
   {
     size_t lat_0 = std::numeric_limits<size_t>::max(), lat_90, lat_95, lat_99, lat_100;
 
@@ -214,34 +213,6 @@ class MwCASBench
   }
 
   /**
-   * @brief Create a worker to run benchmark for a given target implementation.
-   *
-   * @param target a target implementation
-   * @param random_seed a random seed
-   * @return Worker* a created worker
-   */
-  Worker *
-  CreateWorker(  //
-      const BenchTarget target,
-      const size_t exec_num,
-      const size_t random_seed)
-  {
-    switch (target) {
-      case kOurs:
-        return new WorkerMwCAS{target_fields_.get(), mwcas_target_num_, exec_num, zipf_engine_,
-                               random_seed};
-      case kPMwCAS:
-        return new WorkerPMwCAS{*desc_pool_.get(), target_fields_.get(), mwcas_target_num_,
-                                exec_num,          zipf_engine_,         random_seed};
-      case kSingleCAS:
-        return new WorkerSingleCAS{target_fields_.get(), mwcas_target_num_, exec_num, zipf_engine_,
-                                   random_seed};
-      default:
-        return nullptr;
-    }
-  }
-
-  /**
    * @brief Run a worker thread to measure throuput and latency.
    *
    * @param p a promise of a worker pointer that holds benchmark results
@@ -250,17 +221,17 @@ class MwCASBench
    */
   void
   RunWorker(  //
-      std::promise<Worker *> p,
-      const BenchTarget target,
+      std::promise<Worker_t *> p,
       const size_t exec_num,
       const size_t random_seed)
   {
     // prepare a worker
-    Worker *worker;
+    Worker_t *worker;
 
     {  // create a lock to stop a main thread
       const auto lock = std::shared_lock<std::shared_mutex>(mutex_2nd);
-      worker = CreateWorker(target, exec_num, random_seed);
+      worker = new Worker_t{target_fields_.get(), mwcas_target_num_, exec_num, zipf_engine_,
+                            random_seed};
     }  // unlock to notice that this worker has been created
 
     {  // wait for benchmark to be ready
@@ -300,12 +271,19 @@ class MwCASBench
         skew_parameter_{skew_parameter},
         random_seed_{random_seed},
         measure_throughput_{measure_throughput},
-        zipf_engine_{num_field, skew_parameter},
-        queue_{nullptr}
+        zipf_engine_{num_field, skew_parameter}
   {
     // prepare shared target fields
     target_fields_ = std::make_unique<size_t[]>(target_field_num_);
     InitializeTargetFields();
+
+    if constexpr (std::is_same_v<MwCASImplementation, PMwCAS>) {
+      // prepare PMwCAS descriptor pool
+      pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
+                          pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
+      pmwcas_desc_pool = std::make_unique<PMwCAS>(static_cast<uint32_t>(8192 * thread_num_),
+                                                  static_cast<uint32_t>(thread_num_));
+    }
   }
 
   ~MwCASBench() = default;
@@ -320,24 +298,12 @@ class MwCASBench
    * @param target a target implementation
    */
   void
-  RunMwCASBench(const BenchTarget target)
+  Run()
   {
-    switch (target) {
-      case kPMwCAS:
-        // prepare PMwCAS descriptor pool
-        pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
-                            pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
-        desc_pool_ = std::make_unique<pmwcas::DescriptorPool>(
-            static_cast<uint32_t>(8192 * thread_num_), static_cast<uint32_t>(thread_num_));
-        break;
-      default:
-        break;
-    }
-
     /*----------------------------------------------------------------------------------------------
      * Preparation of benchmark workers
      *--------------------------------------------------------------------------------------------*/
-    std::vector<std::future<Worker *>> futures;
+    std::vector<std::future<Worker_t *>> futures;
 
     {  // create a lock to stop workers from running
       const auto lock = std::unique_lock<std::shared_mutex>(mutex_1st);
@@ -346,12 +312,12 @@ class MwCASBench
       std::mt19937_64 rand_engine{random_seed_};
       size_t sum_exec_num = 0;
       for (size_t i = 0; i < thread_num_; ++i) {
-        std::promise<Worker *> p;
+        std::promise<Worker_t *> p;
         futures.emplace_back(p.get_future());
 
         const size_t exec_num =
             (i < thread_num_ - 1) ? exec_num_ / thread_num_ : exec_num_ - sum_exec_num;
-        std::thread t{&MwCASBench::RunWorker, this, std::move(p), target, exec_num, rand_engine()};
+        std::thread t{&MwCASBench::RunWorker, this, std::move(p), exec_num, rand_engine()};
         t.detach();
 
         sum_exec_num += exec_num;
@@ -385,7 +351,7 @@ class MwCASBench
      *--------------------------------------------------------------------------------------------*/
     Log("Finish running...");
 
-    std::vector<Worker *> results;
+    std::vector<Worker_t *> results;
     results.reserve(thread_num_);
     for (auto &&future : futures) {
       results.emplace_back(future.get());

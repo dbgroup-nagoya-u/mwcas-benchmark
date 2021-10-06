@@ -16,33 +16,25 @@
 
 #pragma once
 
+#include <atomic>
+#include <cassert>
+#include <cstddef>
 #include <cstdint>
 
-/**
- * @brief A list of MwCAS operations.
- *
- */
-enum Operation
-{
-  kFront,
-  kBack,
-  kPush,
-  kPop
-};
+#include "mwcas/mwcas.h"               // PMwCAS implementation
+#include "mwcas/mwcas_descriptor.hpp"  // our MwCAS implementation
 
-/**
- * @brief A list of MwCAS implementations.
- *
- */
-enum BenchTarget
-{
-  kOurs,
-  kPMwCAS,
-  kSingleCAS,
-  kQueueCAS,
-  kQueueMwCAS,
-  kQueueMutex
-};
+/*##################################################################################################
+ * Global type aliases
+ *################################################################################################*/
+
+using MwCAS = ::dbgroup::atomic::mwcas::MwCASDescriptor;
+using PMwCAS = ::pmwcas::DescriptorPool;
+using SingleCAS = ::std::atomic_size_t;
+
+/*##################################################################################################
+ * Global constants and enums
+ *################################################################################################*/
 
 #ifdef MWCAS_BENCH_MAX_FIELD_NUM
 /// the maximum number of MwCAS targets

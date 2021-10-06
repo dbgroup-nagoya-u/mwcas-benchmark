@@ -105,21 +105,31 @@ main(int argc, char *argv[])
   const auto random_seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
 
   Log("=== Start MwCAS Benchmark ===");
-  auto bench = MwCASBench{FLAGS_num_exec,       FLAGS_num_thread, FLAGS_num_field, FLAGS_num_target,
-                          FLAGS_skew_parameter, random_seed,      FLAGS_throughput};
   if (FLAGS_ours) {
+    auto bench =
+        MwCASBench<MwCAS>{FLAGS_num_exec,       FLAGS_num_thread, FLAGS_num_field, FLAGS_num_target,
+                          FLAGS_skew_parameter, random_seed,      FLAGS_throughput};
+
     Log("** Run our MwCAS...");
-    bench.RunMwCASBench(BenchTarget::kOurs);
+    bench.Run();
     Log("** Finish.");
   }
   if (FLAGS_pmwcas) {
+    auto bench = MwCASBench<PMwCAS>{FLAGS_num_exec,   FLAGS_num_thread,     FLAGS_num_field,
+                                    FLAGS_num_target, FLAGS_skew_parameter, random_seed,
+                                    FLAGS_throughput};
+
     Log("** Run Microsoft's PMwCAS...");
-    bench.RunMwCASBench(BenchTarget::kPMwCAS);
+    bench.Run();
     Log("** Finish.");
   }
   if (FLAGS_single) {
+    auto bench = MwCASBench<SingleCAS>{FLAGS_num_exec,   FLAGS_num_thread,     FLAGS_num_field,
+                                       FLAGS_num_target, FLAGS_skew_parameter, random_seed,
+                                       FLAGS_throughput};
+
     Log("** Run Single CAS...");
-    bench.RunMwCASBench(BenchTarget::kSingleCAS);
+    bench.Run();
     Log("** Finish.");
   }
   Log("==== End MwCAS Benchmark ====");
