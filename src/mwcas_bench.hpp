@@ -112,7 +112,6 @@ class MwCASBench
   /**
    * @brief Run MwCAS benchmark and output results to stdout.
    *
-   * @param target a target implementation
    */
   void
   Run()
@@ -185,6 +184,44 @@ class MwCASBench
    *##############################################################################################*/
 
   /**
+   * @brief Run a worker thread to measure throuput and latency.
+   *
+   * @param p a promise of a worker pointer that holds benchmark results
+   * @param exec_num the number of operations to be executed by this worker
+   * @param random_seed a random seed
+   */
+  void
+  RunWorker(  //
+      std::promise<Worker_t *> p,
+      const size_t exec_num,
+      const size_t random_seed)
+  {
+    // prepare a worker
+    Worker_t *worker;
+
+    {  // create a lock to stop a main thread
+      const auto lock = std::shared_lock<std::shared_mutex>(mutex_2nd_);
+      worker = new Worker_t{target_fields_, target_num_, exec_num, zipf_engine_, random_seed};
+    }  // unlock to notice that this worker has been created
+
+    {  // wait for benchmark to be ready
+      const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st_);
+      if (measure_throughput_) {
+        worker->MeasureThroughput();
+      } else {
+        worker->MeasureLatency();
+      }
+    }  // unlock to notice that this worker has measured thuroughput/latency
+
+    {  // wait for all workers to finish
+      const auto guard = std::shared_lock<std::shared_mutex>(mutex_2nd_);
+      worker->SortExecutionTimes();
+    }
+
+    p.set_value(worker);
+  }
+
+  /**
    * @brief Compute a throughput score and output it to stdout.
    *
    * @param workers worker pointers that hold benchmark results
@@ -201,7 +238,7 @@ class MwCASBench
     const auto throughput = exec_num_ / (avg_nano_time / 1E9);
 
     if (output_as_csv) {
-      std::cout << throughput;
+      std::cout << throughput << std::endl;
     } else {
       std::cout << "Throughput [Ops/s]: " << throughput << std::endl;
     }
@@ -264,44 +301,6 @@ class MwCASBench
       std::cout << "  99%: " << lat_99 << std::endl;
       std::cout << "  MAX: " << lat_100 << std::endl;
     }
-  }
-
-  /**
-   * @brief Run a worker thread to measure throuput and latency.
-   *
-   * @param p a promise of a worker pointer that holds benchmark results
-   * @param target a target implementation
-   * @param random_seed a random seed
-   */
-  void
-  RunWorker(  //
-      std::promise<Worker_t *> p,
-      const size_t exec_num,
-      const size_t random_seed)
-  {
-    // prepare a worker
-    Worker_t *worker;
-
-    {  // create a lock to stop a main thread
-      const auto lock = std::shared_lock<std::shared_mutex>(mutex_2nd_);
-      worker = new Worker_t{target_fields_, target_num_, exec_num, zipf_engine_, random_seed};
-    }  // unlock to notice that this worker has been created
-
-    {  // wait for benchmark to be ready
-      const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st_);
-      if (measure_throughput_) {
-        worker->MeasureThroughput();
-      } else {
-        worker->MeasureLatency();
-      }
-    }  // unlock to notice that this worker has measured thuroughput/latency
-
-    {  // wait for all workers to finish
-      const auto guard = std::shared_lock<std::shared_mutex>(mutex_2nd_);
-      worker->SortExecutionTimes();
-    }
-
-    p.set_value(worker);
   }
 
   /*################################################################################################
