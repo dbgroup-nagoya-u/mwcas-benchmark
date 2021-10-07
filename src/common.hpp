@@ -42,3 +42,27 @@ constexpr size_t kMaxTargetNum = MWCAS_BENCH_MAX_FIELD_NUM;
 #else
 constexpr size_t kMaxTargetNum = 8;
 #endif
+
+/*##################################################################################################
+ * Global variables
+ *################################################################################################*/
+
+/// a flag to control output format
+bool output_as_csv = true;
+
+/*##################################################################################################
+ * Global utility functions
+ *################################################################################################*/
+
+/**
+ * @brief Log a message to stdout if the output mode is `text`.
+ *
+ * @param message an output message
+ */
+void
+Log(const char *message)
+{
+  if (!output_as_csv) {
+    std::cout << message << std::endl;
+  }
+}

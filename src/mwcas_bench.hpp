@@ -30,41 +30,8 @@
 #include <utility>
 #include <vector>
 
+#include "common.hpp"
 #include "worker.hpp"
-
-/*##################################################################################################
- * Global variables
- *################################################################################################*/
-
-/// a mutex to control workers
-std::shared_mutex mutex_1st;
-
-/// a mutex to control workers
-std::shared_mutex mutex_2nd;
-
-/// a flag to control output format
-bool output_format_is_text = true;
-
-/*##################################################################################################
- * Global utility functions
- *################################################################################################*/
-
-/**
- * @brief Log a message to stdout if the output mode is `text`.
- *
- * @param message an output message
- */
-void
-Log(const char *message)
-{
-  if (output_format_is_text) {
-    std::cout << message << std::endl;
-  }
-}
-
-/*##################################################################################################
- * Utility Classes
- *################################################################################################*/
 
 /**
  * @brief A class to run MwCAS benchmark.
@@ -139,7 +106,7 @@ class MwCASBench
     std::vector<std::future<Worker_t *>> futures;
 
     {  // create a lock to stop workers from running
-      const auto lock = std::unique_lock<std::shared_mutex>(mutex_1st);
+      const auto lock = std::unique_lock<std::shared_mutex>(mutex_1st_);
 
       // create workers in each thread
       std::mt19937_64 rand_engine{random_seed_};
@@ -158,7 +125,7 @@ class MwCASBench
       assert(sum_exec_num == exec_num_);
 
       // wait for all workers to be created
-      const auto guard = std::unique_lock<std::shared_mutex>(mutex_2nd);
+      const auto guard = std::unique_lock<std::shared_mutex>(mutex_2nd_);
 
       InitializeTargetFields();
     }  // unlock to run workers
@@ -173,10 +140,10 @@ class MwCASBench
     }
 
     {  // create a lock to stop workers from running
-      const auto lock = std::unique_lock<std::shared_mutex>(mutex_2nd);
+      const auto lock = std::unique_lock<std::shared_mutex>(mutex_2nd_);
 
       // wait for all workers to finish measuring throughput
-      const auto guard = std::unique_lock<std::shared_mutex>(mutex_1st);
+      const auto guard = std::unique_lock<std::shared_mutex>(mutex_1st_);
     }  // unlock to run workers
 
     /*----------------------------------------------------------------------------------------------
@@ -222,10 +189,10 @@ class MwCASBench
 
     const auto throughput = exec_num_ / (avg_nano_time / 1E9);
 
-    if (output_format_is_text) {
-      std::cout << "Throughput [Ops/s]: " << throughput << std::endl;
-    } else {
+    if (output_as_csv) {
       std::cout << throughput;
+    } else {
+      std::cout << "Throughput [Ops/s]: " << throughput << std::endl;
     }
   }
 
@@ -277,14 +244,14 @@ class MwCASBench
     }
 
     Log("Percentiled Latencies [ns]:");
-    if (output_format_is_text) {
+    if (output_as_csv) {
+      std::cout << lat_0 << "," << lat_90 << "," << lat_95 << "," << lat_99 << "," << lat_100;
+    } else {
       std::cout << "  MIN: " << lat_0 << std::endl;
       std::cout << "  90%: " << lat_90 << std::endl;
       std::cout << "  95%: " << lat_95 << std::endl;
       std::cout << "  99%: " << lat_99 << std::endl;
       std::cout << "  MAX: " << lat_100 << std::endl;
-    } else {
-      std::cout << lat_0 << "," << lat_90 << "," << lat_95 << "," << lat_99 << "," << lat_100;
     }
   }
 
@@ -319,12 +286,12 @@ class MwCASBench
     Worker_t *worker;
 
     {  // create a lock to stop a main thread
-      const auto lock = std::shared_lock<std::shared_mutex>(mutex_2nd);
+      const auto lock = std::shared_lock<std::shared_mutex>(mutex_2nd_);
       worker = new Worker_t{target_fields_.get(), target_num_, exec_num, zipf_engine_, random_seed};
     }  // unlock to notice that this worker has been created
 
     {  // wait for benchmark to be ready
-      const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st);
+      const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st_);
       if (measure_throughput_) {
         worker->MeasureThroughput();
       } else {
@@ -333,7 +300,7 @@ class MwCASBench
     }  // unlock to notice that this worker has measured thuroughput/latency
 
     {  // wait for all workers to finish
-      const auto guard = std::shared_lock<std::shared_mutex>(mutex_2nd);
+      const auto guard = std::shared_lock<std::shared_mutex>(mutex_2nd_);
       worker->SortExecutionTimes();
     }
 
@@ -370,4 +337,10 @@ class MwCASBench
 
   /// a random engine according to Zipf's law
   ZipfGenerator zipf_engine_;
+
+  /// a mutex to control workers
+  std::shared_mutex mutex_1st_;
+
+  /// a mutex to control workers
+  std::shared_mutex mutex_2nd_;
 };

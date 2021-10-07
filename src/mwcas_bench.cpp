@@ -101,7 +101,8 @@ main(int argc, char *argv[])
   // parse command line options
   gflags::SetUsageMessage("measures throughput/latency for MwCAS implementations.");
   gflags::ParseCommandLineFlags(&argc, &argv, false);
-  output_format_is_text = !FLAGS_csv;
+
+  output_as_csv = FLAGS_csv;
   const auto random_seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
 
   Log("=== Start MwCAS Benchmark ===");
