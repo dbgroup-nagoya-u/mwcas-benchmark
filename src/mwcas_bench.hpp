@@ -110,19 +110,16 @@ class MwCASBench
 
       // create workers in each thread
       std::mt19937_64 rand_engine{random_seed_};
-      size_t sum_exec_num = 0;
+      size_t exec_num = exec_num_ / thread_num_;
       for (size_t i = 0; i < thread_num_; ++i) {
+        if (i == thread_num_ - 1) {
+          exec_num = exec_num_ - (exec_num * (thread_num_ - 1));
+        }
+
         std::promise<Worker_t *> p;
         futures.emplace_back(p.get_future());
-
-        const size_t exec_num =
-            (i < thread_num_ - 1) ? exec_num_ / thread_num_ : exec_num_ - sum_exec_num;
-        std::thread t{&MwCASBench::RunWorker, this, std::move(p), exec_num, rand_engine()};
-        t.detach();
-
-        sum_exec_num += exec_num;
+        std::thread{&MwCASBench::RunWorker, this, std::move(p), exec_num, rand_engine()}.detach();
       }
-      assert(sum_exec_num == exec_num_);
 
       // wait for all workers to be created
       const auto guard = std::unique_lock<std::shared_mutex>(mutex_2nd_);
