@@ -41,6 +41,7 @@ class Worker
    *##############################################################################################*/
 
   using ZipfGenerator = ::dbgroup::random::zipf::ZipfGenerator;
+  using MwCASTargets = ::std::array<uint64_t *, kMaxTargetNum>;
 
  public:
   /*################################################################################################
@@ -54,42 +55,41 @@ class Worker
    * @param random_seed a random seed
    */
   Worker(  //
-      size_t *target_fields,
-      const size_t mwcas_target_num,
+      std::vector<uint64_t *> &target_fields,
+      const size_t target_num,
       const size_t operation_counts,
       ZipfGenerator &zipf_engine,
       const size_t random_seed = 0)
-      : operation_counts_{operation_counts},
-        random_seed_{random_seed},
-        exec_time_nano_{0},
-        zipf_engine_{zipf_engine},
-        target_fields_{target_fields},
-        mwcas_target_num_{mwcas_target_num}
+      : total_exec_time_nano_{0}, target_num_{target_num}
   {
-    exec_times_nano_.reserve(operation_counts_);
+    // reserve capacity of dynamic arrays
+    latencies_nano_.reserve(operation_counts);
+    operations_.reserve(operation_counts);
 
-    // generate an operation-queue for benchmark
-    mwcas_targets_.reserve(operation_counts_);
-
-    std::mt19937_64 rand_engine{random_seed_};
-    for (size_t i = 0; i < operation_counts_; ++i) {
-      // select target fields for i-th operation
-      std::array<size_t, kMaxTargetNum> mwcas_target;
-      for (size_t j = 0; j < mwcas_target_num_; ++j) {
-        const auto current_end = mwcas_target.begin() + j;
-        size_t field_id;
+    // generate an operation-queue for benchmarking
+    std::mt19937_64 rand_engine{random_seed};
+    for (size_t i = 0; i < operation_counts; ++i) {
+      // select target addresses for i-th operation
+      MwCASTargets targets;
+      for (size_t j = 0; j < target_num; ++j) {
+        const auto cur_end = targets.begin() + j;
+        uint64_t *addr;
         do {
-          field_id = zipf_engine_(rand_engine);
-        } while (std::find(mwcas_target.begin(), current_end, field_id) != current_end);
-
-        mwcas_target[j] = field_id;
+          addr = target_fields[zipf_engine(rand_engine)];
+        } while (std::find(targets.begin(), cur_end, addr) != cur_end);
+        targets[j] = addr;
       }
 
-      // sort MwCAS targets to prevent deadlocks
-      std::sort(mwcas_target.begin(), mwcas_target.begin() + mwcas_target_num_);
-      mwcas_targets_.emplace_back(std::move(mwcas_target));
+      // sort target addresses for linearization
+      std::sort(targets.begin(), targets.end());
+
+      operations_.emplace_back(std::move(targets));
     }
   }
+
+  /*################################################################################################
+   * Public destructors
+   *##############################################################################################*/
 
   ~Worker() = default;
 
@@ -104,18 +104,17 @@ class Worker
   void
   MeasureLatency()
   {
-    assert(mwcas_targets_.size() == operation_counts_);
-    assert(exec_times_nano_.empty());
+    assert(latencies_nano_.empty());
 
-    for (size_t i = 0; i < operation_counts_; ++i) {
+    for (auto &&operation : operations_) {
       const auto start_time = std::chrono::high_resolution_clock::now();
 
-      PerformMwCAS(mwcas_targets_[i]);
+      PerformMwCAS(operation);
 
       const auto end_time = std::chrono::high_resolution_clock::now();
       const auto exec_time =
           std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
-      exec_times_nano_.emplace_back(exec_time);
+      latencies_nano_.emplace_back(exec_time);
     }
   }
 
@@ -126,16 +125,14 @@ class Worker
   void
   MeasureThroughput()
   {
-    assert(mwcas_targets_.size() == operation_counts_);
-
     const auto start_time = std::chrono::high_resolution_clock::now();
 
-    for (size_t i = 0; i < operation_counts_; ++i) {
-      PerformMwCAS(mwcas_targets_[i]);
+    for (auto &&operation : operations_) {
+      PerformMwCAS(operation);
     }
 
     const auto end_time = std::chrono::high_resolution_clock::now();
-    exec_time_nano_ =
+    total_exec_time_nano_ =
         std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
   }
 
@@ -146,7 +143,7 @@ class Worker
   void
   SortExecutionTimes()
   {
-    std::sort(exec_times_nano_.begin(), exec_times_nano_.end());
+    std::sort(latencies_nano_.begin(), latencies_nano_.end());
   }
 
   /**
@@ -156,7 +153,7 @@ class Worker
   size_t
   GetLatency(const size_t index) const
   {
-    return exec_times_nano_[index];
+    return latencies_nano_[index];
   }
 
   /**
@@ -165,7 +162,7 @@ class Worker
   size_t
   GetTotalExecTime() const
   {
-    return exec_time_nano_;
+    return total_exec_time_nano_;
   }
 
   /**
@@ -174,7 +171,7 @@ class Worker
   size_t
   GetOperationCount() const
   {
-    return operation_counts_;
+    return operations_.size();
   }
 
  private:
@@ -185,37 +182,25 @@ class Worker
   /**
    * @brief Perform a MwCAS operation based on its implementation.
    *
-   * @param target_indexes target indexes of a MwCAS operation
+   * @param targets target addresses of a MwCAS operation
    */
-  void PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_indexes);
+  void PerformMwCAS(const MwCASTargets &targets);
 
   /*################################################################################################
    * Internal member variables
    *##############################################################################################*/
 
-  /// the number of operations executed in each thread
-  size_t operation_counts_;
-
-  /// a random seed
-  size_t random_seed_;
-
   /// total execution time [ns]
-  size_t exec_time_nano_;
+  size_t total_exec_time_nano_;
 
   /// execution time for each operation [ns]
-  std::vector<size_t> exec_times_nano_;
+  std::vector<size_t> latencies_nano_;
 
-  /// MwCAS target filed IDs for each operation
-  std::vector<std::array<size_t, kMaxTargetNum>> mwcas_targets_;
-
-  /// a random engine according to Zipf's law
-  ZipfGenerator &zipf_engine_;
-
-  /// a head of MwCAS target fields
-  size_t *target_fields_;
+  /// MwCAS target filed addresses for each operation
+  std::vector<MwCASTargets> operations_;
 
   /// the number of MwCAS targets for each operation
-  size_t mwcas_target_num_;
+  const size_t target_num_;
 };
 
 /*##################################################################################################
@@ -224,32 +209,34 @@ class Worker
 
 template <>
 inline void
-Worker<MwCAS>::PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_indexes)
+Worker<MwCAS>::PerformMwCAS(const MwCASTargets &targets)
 {
   while (true) {
     MwCAS desc{};
-    for (size_t i = 0; i < mwcas_target_num_; ++i) {
-      const auto addr = target_fields_ + target_indexes[i];
+    for (size_t i = 0; i < target_num_; ++i) {
+      const auto addr = targets[i];
       const auto old_val = dbgroup::atomic::mwcas::ReadMwCASField<size_t>(addr);
       const auto new_val = old_val + 1;
       desc.AddMwCASTarget(addr, old_val, new_val);
     }
+
     if (desc.MwCAS()) break;
   }
 }
 
 template <>
 inline void
-Worker<PMwCAS>::PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_indexes)
+Worker<PMwCAS>::PerformMwCAS(const MwCASTargets &targets)
 {
+  using PMwCASField = ::pmwcas::MwcTargetField<uint64_t>;
+
   while (true) {
     auto desc = pmwcas_desc_pool->AllocateDescriptor();
     auto epoch = pmwcas_desc_pool->GetEpoch();
     epoch->Protect();
-    for (size_t i = 0; i < mwcas_target_num_; ++i) {
-      const auto addr = target_fields_ + target_indexes[i];
-      const auto old_val =
-          reinterpret_cast<pmwcas::MwcTargetField<size_t> *>(addr)->GetValueProtected();
+    for (size_t i = 0; i < target_num_; ++i) {
+      const auto addr = targets[i];
+      const auto old_val = reinterpret_cast<PMwCASField *>(addr)->GetValueProtected();
       const auto new_val = old_val + 1;
       desc->AddEntry(addr, old_val, new_val);
     }
@@ -261,11 +248,10 @@ Worker<PMwCAS>::PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_ind
 
 template <>
 inline void
-Worker<SingleCAS>::PerformMwCAS(const std::array<size_t, kMaxTargetNum> &target_indexes)
+Worker<SingleCAS>::PerformMwCAS(const MwCASTargets &targets)
 {
-  for (size_t i = 0; i < mwcas_target_num_; ++i) {
-    const auto addr = target_fields_ + target_indexes[i];
-    auto target = reinterpret_cast<std::atomic_size_t *>(addr);
+  for (size_t i = 0; i < target_num_; ++i) {
+    auto target = reinterpret_cast<SingleCAS *>(targets[i]);
     auto old_val = target->load(std::memory_order_relaxed);
     size_t new_val;
     do {

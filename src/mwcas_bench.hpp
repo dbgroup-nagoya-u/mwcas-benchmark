@@ -25,7 +25,6 @@
 #include <mutex>
 #include <random>
 #include <shared_mutex>
-#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -53,26 +52,41 @@ class MwCASBench
    *##############################################################################################*/
 
   MwCASBench(  //
-      const size_t num_exec,
-      const size_t num_thread,
       const size_t num_field,
       const size_t num_target,
+      const size_t num_exec,
+      const size_t num_thread,
       const double skew_parameter,
+      const size_t init_thread_num,
       const size_t random_seed,
       const bool measure_throughput)
-      : exec_num_{num_exec},
-        thread_num_{num_thread},
-        target_field_num_{num_field},
+      : field_num_{num_field},
         target_num_{num_target},
+        exec_num_{num_exec},
+        thread_num_{num_thread},
         skew_parameter_{skew_parameter},
         random_seed_{random_seed},
         measure_throughput_{measure_throughput},
+        target_fields_{num_field, nullptr},
         zipf_engine_{num_field, skew_parameter}
   {
-    // prepare shared target fields
-    target_fields_ = std::make_unique<size_t[]>(target_field_num_);
-    InitializeTargetFields();
+    // a lambda function to initialize target fields
+    auto f = [&](const size_t begin_id, const size_t end_id) {
+      for (size_t i = begin_id; i < end_id; ++i) {
+        target_fields_[i] = new uint64_t{0};
+      }
+    };
 
+    // prepare MwCAS target fields
+    std::vector<std::thread> threads;
+    const size_t field_num = field_num_ / init_thread_num;
+    for (size_t i = 0, begin_id = 0; i < init_thread_num; ++i, begin_id += field_num) {
+      const auto end_id = (i < init_thread_num - 1) ? begin_id + field_num : field_num_;
+      threads.emplace_back(f, begin_id, end_id);
+    }
+    for (auto &&t : threads) t.join();
+
+    // prepare descriptor pool for PMwCAS if needed
     if constexpr (std::is_same_v<MwCASImplementation, PMwCAS>) {
       // prepare PMwCAS descriptor pool
       pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
@@ -86,7 +100,12 @@ class MwCASBench
    * Public destructors
    *##############################################################################################*/
 
-  ~MwCASBench() = default;
+  ~MwCASBench()
+  {
+    for (auto &&field : target_fields_) {
+      delete field;
+    }
+  }
 
   /*################################################################################################
    * Public utility functions
@@ -103,6 +122,8 @@ class MwCASBench
     /*----------------------------------------------------------------------------------------------
      * Preparation of benchmark workers
      *--------------------------------------------------------------------------------------------*/
+    Log("...Prepare workers for benchmarking.");
+
     std::vector<std::future<Worker_t *>> futures;
 
     {  // create a lock to stop workers from running
@@ -122,19 +143,14 @@ class MwCASBench
       }
 
       // wait for all workers to be created
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
       const auto guard = std::unique_lock<std::shared_mutex>(mutex_2nd_);
-
-      InitializeTargetFields();
     }  // unlock to run workers
 
     /*----------------------------------------------------------------------------------------------
      * Measuring throughput/latency
      *--------------------------------------------------------------------------------------------*/
-    if (measure_throughput_) {
-      Log("Run workers to measure throughput...");
-    } else {
-      Log("Run workers to measure latency...");
-    }
+    Log("...Run workers.");
 
     {  // create a lock to stop workers from running
       const auto lock = std::unique_lock<std::shared_mutex>(mutex_2nd_);
@@ -146,7 +162,7 @@ class MwCASBench
     /*----------------------------------------------------------------------------------------------
      * Output benchmark results
      *--------------------------------------------------------------------------------------------*/
-    Log("Finish running...");
+    Log("...Finish running.");
 
     std::vector<Worker_t *> results;
     results.reserve(thread_num_);
@@ -253,20 +269,6 @@ class MwCASBench
   }
 
   /**
-   * @brief Fill MwCAS target fields with zeros.
-   *
-   */
-  void
-  InitializeTargetFields()
-  {
-    assert(target_fields_);
-
-    for (size_t index = 0; index < target_field_num_; ++index) {
-      target_fields_[index] = 0;
-    }
-  }
-
-  /**
    * @brief Run a worker thread to measure throuput and latency.
    *
    * @param p a promise of a worker pointer that holds benchmark results
@@ -284,7 +286,7 @@ class MwCASBench
 
     {  // create a lock to stop a main thread
       const auto lock = std::shared_lock<std::shared_mutex>(mutex_2nd_);
-      worker = new Worker_t{target_fields_.get(), target_num_, exec_num, zipf_engine_, random_seed};
+      worker = new Worker_t{target_fields_, target_num_, exec_num, zipf_engine_, random_seed};
     }  // unlock to notice that this worker has been created
 
     {  // wait for benchmark to be ready
@@ -308,17 +310,17 @@ class MwCASBench
    * Internal member variables
    *##############################################################################################*/
 
+  /// the total number of target fields
+  const size_t field_num_;
+
+  /// the number of MwCAS targets for each operation
+  const size_t target_num_;
+
   /// the total number of MwCAS operations for benchmarking
   const size_t exec_num_;
 
   /// the number of execution threads
   const size_t thread_num_;
-
-  /// the total number of target fields
-  const size_t target_field_num_;
-
-  /// the number of MwCAS targets for each operation
-  const size_t target_num_;
 
   /// a skew parameter
   const double skew_parameter_;
@@ -330,7 +332,7 @@ class MwCASBench
   const bool measure_throughput_;
 
   /// target fields of MwCAS
-  std::unique_ptr<size_t[]> target_fields_;
+  std::vector<uint64_t *> target_fields_;
 
   /// a random engine according to Zipf's law
   ZipfGenerator zipf_engine_;
