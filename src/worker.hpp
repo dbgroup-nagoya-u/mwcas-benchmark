@@ -141,19 +141,28 @@ class Worker
    *
    */
   void
-  SortExecutionTimes()
+  SortLatencies(const size_t sample_num)
   {
-    std::sort(latencies_nano_.begin(), latencies_nano_.end());
+    std::vector<size_t> sampled_latencies;
+    sampled_latencies.reserve(sample_num);
+
+    // perform random sampling to reduce sorting targets
+    std::uniform_int_distribution<size_t> id_generator{0, latencies_nano_.size() - 1};
+    std::mt19937_64 rand_engine{std::random_device{}()};
+    for (size_t i = 0; i < sample_num; ++i) {
+      const auto sample_idx = id_generator(rand_engine);
+      sampled_latencies.emplace_back(latencies_nano_[sample_idx]);
+    }
+
+    // sort sampled execution times
+    std::sort(sampled_latencies.begin(), sampled_latencies.end());
+    latencies_nano_ = std::move(sampled_latencies);
   }
 
-  /**
-   * @param index a target index to get latency
-   * @return size_t `index`-th execution time
-   */
-  size_t
-  GetLatency(const size_t index) const
+  const std::vector<size_t> &
+  GetLatencies() const
   {
-    return latencies_nano_[index];
+    return latencies_nano_;
   }
 
   /**
@@ -163,15 +172,6 @@ class Worker
   GetTotalExecTime() const
   {
     return total_exec_time_nano_;
-  }
-
-  /**
-   * @return size_t the number of executed MwCAS operations
-   */
-  size_t
-  GetOperationCount() const
-  {
-    return operations_.size();
   }
 
  private:

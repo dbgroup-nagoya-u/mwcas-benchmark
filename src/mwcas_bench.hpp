@@ -19,7 +19,9 @@
 #include <gflags/gflags.h>
 #include <pmwcas.h>
 
+#include <algorithm>
 #include <future>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -61,7 +63,7 @@ class MwCASBench
       const size_t random_seed,
       const bool measure_throughput)
       : target_num_{target_num},
-        exec_num_{exec_num},
+        total_exec_num_{exec_num},
         thread_num_{thread_num},
         random_seed_{random_seed},
         measure_throughput_{measure_throughput},
@@ -128,15 +130,20 @@ class MwCASBench
 
       // create workers in each thread
       std::mt19937_64 rand_engine{random_seed_};
-      size_t exec_num = exec_num_ / thread_num_;
+      const size_t total_sample_size =
+          (total_exec_num_ < kMaxLatencyNum) ? total_exec_num_ : kMaxLatencyNum;
+      size_t exec_num = total_exec_num_ / thread_num_;
+      size_t sample_num = total_sample_size / thread_num_;
       for (size_t i = 0; i < thread_num_; ++i) {
         if (i == thread_num_ - 1) {
-          exec_num = exec_num_ - (exec_num * (thread_num_ - 1));
+          exec_num = total_exec_num_ - exec_num * (thread_num_ - 1);
+          sample_num = total_sample_size - sample_num * (thread_num_ - 1);
         }
 
         std::promise<Worker_t *> p;
         futures.emplace_back(p.get_future());
-        std::thread{&MwCASBench::RunWorker, this, std::move(p), exec_num, rand_engine()}.detach();
+        std::thread{&MwCASBench::RunWorker, this, std::move(p), exec_num, sample_num, rand_engine()}
+            .detach();
       }
 
       // wait for all workers to be created
@@ -180,6 +187,15 @@ class MwCASBench
 
  private:
   /*################################################################################################
+   * Internal constants
+   *##############################################################################################*/
+
+  static constexpr size_t kMaxLatencyNum = 1e6;
+  static constexpr double kTargetPercentiles[] = {0.00, 0.01, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30,
+                                                  0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70,
+                                                  0.75, 0.80, 0.85, 0.90, 0.95, 0.99, 1.00};
+
+  /*################################################################################################
    * Internal utility functions
    *##############################################################################################*/
 
@@ -194,6 +210,7 @@ class MwCASBench
   RunWorker(  //
       std::promise<Worker_t *> p,
       const size_t exec_num,
+      const size_t sample_num,
       const size_t random_seed)
   {
     // prepare a worker
@@ -213,9 +230,10 @@ class MwCASBench
       }
     }  // unlock to notice that this worker has measured thuroughput/latency
 
-    {  // wait for all workers to finish
+    if (!measure_throughput_) {
+      // wait for all workers to finish
       const auto guard = std::shared_lock<std::shared_mutex>(mutex_2nd_);
-      worker->SortExecutionTimes();
+      worker->SortLatencies(sample_num);
     }
 
     p.set_value(worker);
@@ -235,7 +253,7 @@ class MwCASBench
     }
     avg_nano_time /= thread_num_;
 
-    const auto throughput = exec_num_ / (avg_nano_time / 1E9);
+    const auto throughput = total_exec_num_ / (avg_nano_time / 1E9);
 
     if (output_as_csv) {
       std::cout << throughput << std::endl;
@@ -252,54 +270,33 @@ class MwCASBench
   void
   LogLatency(const std::vector<Worker_t *> &workers) const
   {
-    size_t lat_0 = std::numeric_limits<size_t>::max(), lat_90, lat_95, lat_99, lat_100;
+    std::vector<size_t> latencies;
+    latencies.reserve(kMaxLatencyNum);
 
-    // compute the minimum latency and initialize an index list
-    std::vector<size_t> indexes;
-    indexes.reserve(thread_num_);
-    for (size_t thread = 0; thread < thread_num_; ++thread) {
-      indexes.emplace_back(workers[thread]->GetOperationCount() - 1);
-      const auto exec_time = workers[thread]->GetLatency(0);
-      if (exec_time < lat_0) {
-        lat_0 = exec_time;
-      }
+    // sort all execution time
+    for (auto &&worker : workers) {
+      auto worker_latencies = worker->GetLatencies();
+      latencies.insert(latencies.end(), worker_latencies.begin(), worker_latencies.end());
     }
-
-    // check latency with descending order
-    for (size_t count = exec_num_; count >= exec_num_ * 0.90; --count) {
-      size_t target_thread = 0;
-      auto max_exec_time = std::numeric_limits<size_t>::min();
-      for (size_t thread = 0; thread < thread_num_; ++thread) {
-        const auto exec_time = workers[thread]->GetLatency(indexes[thread]);
-        if (exec_time > max_exec_time) {
-          max_exec_time = exec_time;
-          target_thread = thread;
-        }
-      }
-
-      // if `count` reaches target percentiles, store its latency
-      if (count == exec_num_) {
-        lat_100 = max_exec_time;
-      } else if (count == static_cast<size_t>(exec_num_ * 0.99)) {
-        lat_99 = max_exec_time;
-      } else if (count == static_cast<size_t>(exec_num_ * 0.95)) {
-        lat_95 = max_exec_time;
-      } else if (count == static_cast<size_t>(exec_num_ * 0.90)) {
-        lat_90 = max_exec_time;
-      }
-
-      --indexes[target_thread];
-    }
+    std::sort(latencies.begin(), latencies.end());
 
     Log("Percentiled Latencies [ns]:");
-    if (output_as_csv) {
-      std::cout << lat_0 << "," << lat_90 << "," << lat_95 << "," << lat_99 << "," << lat_100;
-    } else {
-      std::cout << "  MIN: " << lat_0 << std::endl;
-      std::cout << "  90%: " << lat_90 << std::endl;
-      std::cout << "  95%: " << lat_95 << std::endl;
-      std::cout << "  99%: " << lat_99 << std::endl;
-      std::cout << "  MAX: " << lat_100 << std::endl;
+    for (auto &&percentile : kTargetPercentiles) {
+      const size_t percentiled_idx =
+          (percentile == 1.0) ? latencies.size() - 1 : latencies.size() * percentile;
+      if (!output_as_csv) {
+        std::cout << "  " << std::fixed << std::setprecision(2) << percentile << ": ";
+      }
+      std::cout << latencies[percentiled_idx];
+      if (!output_as_csv) {
+        std::cout << std::endl;
+      } else {
+        if (percentile < 1.0) {
+          std::cout << ",";
+        } else {
+          std::cout << std::endl;
+        }
+      }
     }
   }
 
@@ -311,7 +308,7 @@ class MwCASBench
   const size_t target_num_;
 
   /// the total number of MwCAS operations for benchmarking
-  const size_t exec_num_;
+  const size_t total_exec_num_;
 
   /// the number of execution threads
   const size_t thread_num_;
