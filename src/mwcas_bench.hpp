@@ -52,23 +52,21 @@ class MwCASBench
    *##############################################################################################*/
 
   MwCASBench(  //
-      const size_t num_field,
-      const size_t num_target,
-      const size_t num_exec,
-      const size_t num_thread,
+      const size_t total_field_num,
+      const size_t target_num,
+      const size_t exec_num,
+      const size_t thread_num,
       const double skew_parameter,
       const size_t init_thread_num,
       const size_t random_seed,
       const bool measure_throughput)
-      : field_num_{num_field},
-        target_num_{num_target},
-        exec_num_{num_exec},
-        thread_num_{num_thread},
-        skew_parameter_{skew_parameter},
+      : target_num_{target_num},
+        exec_num_{exec_num},
+        thread_num_{thread_num},
         random_seed_{random_seed},
         measure_throughput_{measure_throughput},
-        target_fields_{num_field, nullptr},
-        zipf_engine_{num_field, skew_parameter}
+        target_fields_{total_field_num, nullptr},
+        zipf_engine_{total_field_num, skew_parameter}
   {
     // a lambda function to initialize target fields
     auto f = [&](const size_t begin_id, const size_t end_id) {
@@ -79,9 +77,9 @@ class MwCASBench
 
     // prepare MwCAS target fields
     std::vector<std::thread> threads;
-    const size_t field_num = field_num_ / init_thread_num;
+    const size_t field_num = total_field_num / init_thread_num;
     for (size_t i = 0, begin_id = 0; i < init_thread_num; ++i, begin_id += field_num) {
-      const auto end_id = (i < init_thread_num - 1) ? begin_id + field_num : field_num_;
+      const auto end_id = (i < init_thread_num - 1) ? begin_id + field_num : total_field_num;
       threads.emplace_back(f, begin_id, end_id);
     }
     for (auto &&t : threads) t.join();
@@ -310,9 +308,6 @@ class MwCASBench
    * Internal member variables
    *##############################################################################################*/
 
-  /// the total number of target fields
-  const size_t field_num_;
-
   /// the number of MwCAS targets for each operation
   const size_t target_num_;
 
@@ -321,9 +316,6 @@ class MwCASBench
 
   /// the number of execution threads
   const size_t thread_num_;
-
-  /// a skew parameter
-  const double skew_parameter_;
 
   /// a base random seed
   const size_t random_seed_;
