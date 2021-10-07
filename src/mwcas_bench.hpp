@@ -16,313 +16,123 @@
 
 #pragma once
 
-#include <gflags/gflags.h>
-#include <pmwcas.h>
-
+#include <algorithm>
 #include <future>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <mutex>
 #include <random>
 #include <shared_mutex>
-#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
 
-#include "container/queue_cas.hpp"
-#include "container/queue_mutex.hpp"
-#include "container/queue_mwcas.hpp"
+#include "common.hpp"
 #include "worker.hpp"
-#include "worker_cas.hpp"
-#include "worker_mwcas.hpp"
-#include "worker_pmwcas.hpp"
-#include "worker_queue.hpp"
 
-using dbgroup::container::QueueCAS;
-using dbgroup::container::QueueMutex;
-using dbgroup::container::QueueMwCAS;
-
-/*##################################################################################################
- * Global variables
- *################################################################################################*/
-
-/// a mutex to control workers
-std::shared_mutex mutex_1st;
-
-/// a mutex to control workers
-std::shared_mutex mutex_2nd;
-
-/// a flag to control output format
-bool output_format_is_text = true;
-
-/*##################################################################################################
- * Global utility functions
- *################################################################################################*/
-
-/**
- * @brief Log a message to stdout if the output mode is `text`.
- *
- * @param message an output message
- */
-void
-Log(const char *message)
-{
-  if (output_format_is_text) {
-    std::cout << message << std::endl;
-  }
-}
-
-/*##################################################################################################
- * Utility Classes
- *################################################################################################*/
+// use PMwCAS
+#include "pmwcas.h"
 
 /**
  * @brief A class to run MwCAS benchmark.
  *
+ * @tparam MwCASImplementation An implementation of MwCAS algorithms.
  */
+template <class MwCASImplementation>
 class MwCASBench
 {
- private:
   /*################################################################################################
-   * Internal member variables
+   * Type aliases
    *##############################################################################################*/
 
-  /// the total number of MwCAS operations
-  const size_t exec_num_;
-
-  /// the number of execution threads
-  const size_t thread_num_;
-
-  /// the total number of target fields
-  const size_t target_field_num_;
-
-  /// the number of target fields for each MwCAS
-  const size_t mwcas_target_num_;
-
-  /// a skew parameter
-  const double skew_parameter_;
-
-  /// a base random seed
-  const size_t random_seed_;
-
-  /// a flag to measure throughput (if true) or latency (if false)
-  const bool measure_throughput_;
-
-  /// target fields of MwCAS
-  std::unique_ptr<size_t[]> target_fields_;
-
-  /// a random engine according to Zipf's law
-  ZipfGenerator zipf_engine_;
-
-  /// PMwCAS descriptor pool
-  std::unique_ptr<pmwcas::DescriptorPool> desc_pool_;
-
-  /// a thread-safe queue
-  void *queue_;
-
-  /*################################################################################################
-   * Private utility functions
-   *##############################################################################################*/
-
-  /**
-   * @brief Compute a throughput score and output it to stdout.
-   *
-   * @param workers worker pointers that hold benchmark results
-   */
-  void
-  LogThroughput(const std::vector<Worker *> &workers) const
-  {
-    size_t avg_nano_time = 0;
-    for (auto &&worker : workers) {
-      avg_nano_time += worker->GetTotalExecTime();
-    }
-    avg_nano_time /= thread_num_;
-
-    const auto throughput = exec_num_ / (avg_nano_time / 1E9);
-
-    if (output_format_is_text) {
-      std::cout << "Throughput [Ops/s]: " << throughput << std::endl;
-    } else {
-      std::cout << throughput;
-    }
-  }
-
-  /**
-   * @brief Compute percentiled latency and output it to stdout.
-   *
-   * @param workers worker pointers that hold benchmark results
-   */
-  void
-  LogLatency(const std::vector<Worker *> &workers) const
-  {
-    size_t lat_0 = std::numeric_limits<size_t>::max(), lat_90, lat_95, lat_99, lat_100;
-
-    // compute the minimum latency and initialize an index list
-    std::vector<size_t> indexes;
-    indexes.reserve(thread_num_);
-    for (size_t thread = 0; thread < thread_num_; ++thread) {
-      indexes.emplace_back(workers[thread]->GetOperationCount() - 1);
-      const auto exec_time = workers[thread]->GetLatency(0);
-      if (exec_time < lat_0) {
-        lat_0 = exec_time;
-      }
-    }
-
-    // check latency with descending order
-    for (size_t count = exec_num_; count >= exec_num_ * 0.90; --count) {
-      size_t target_thread = 0;
-      auto max_exec_time = std::numeric_limits<size_t>::min();
-      for (size_t thread = 0; thread < thread_num_; ++thread) {
-        const auto exec_time = workers[thread]->GetLatency(indexes[thread]);
-        if (exec_time > max_exec_time) {
-          max_exec_time = exec_time;
-          target_thread = thread;
-        }
-      }
-
-      // if `count` reaches target percentiles, store its latency
-      if (count == exec_num_) {
-        lat_100 = max_exec_time;
-      } else if (count == static_cast<size_t>(exec_num_ * 0.99)) {
-        lat_99 = max_exec_time;
-      } else if (count == static_cast<size_t>(exec_num_ * 0.95)) {
-        lat_95 = max_exec_time;
-      } else if (count == static_cast<size_t>(exec_num_ * 0.90)) {
-        lat_90 = max_exec_time;
-      }
-
-      --indexes[target_thread];
-    }
-
-    Log("Percentiled Latencies [ns]:");
-    if (output_format_is_text) {
-      std::cout << "  MIN: " << lat_0 << std::endl;
-      std::cout << "  90%: " << lat_90 << std::endl;
-      std::cout << "  95%: " << lat_95 << std::endl;
-      std::cout << "  99%: " << lat_99 << std::endl;
-      std::cout << "  MAX: " << lat_100 << std::endl;
-    } else {
-      std::cout << lat_0 << "," << lat_90 << "," << lat_95 << "," << lat_99 << "," << lat_100;
-    }
-  }
-
-  /**
-   * @brief Fill MwCAS target fields with zeros.
-   *
-   */
-  void
-  InitializeTargetFields()
-  {
-    assert(target_fields_);
-
-    for (size_t index = 0; index < target_field_num_; ++index) {
-      target_fields_[index] = 0;
-    }
-  }
-
-  /**
-   * @brief Create a worker to run benchmark for a given target implementation.
-   *
-   * @param target a target implementation
-   * @param random_seed a random seed
-   * @return Worker* a created worker
-   */
-  Worker *
-  CreateWorker(  //
-      const BenchTarget target,
-      const size_t exec_num,
-      const size_t random_seed)
-  {
-    switch (target) {
-      case kOurs:
-        return new WorkerMwCAS{target_fields_.get(), mwcas_target_num_, exec_num, zipf_engine_,
-                               random_seed};
-      case kPMwCAS:
-        return new WorkerPMwCAS{*desc_pool_.get(), target_fields_.get(), mwcas_target_num_,
-                                exec_num,          zipf_engine_,         random_seed};
-      case kSingleCAS:
-        return new WorkerSingleCAS{target_fields_.get(), mwcas_target_num_, exec_num, zipf_engine_,
-                                   random_seed};
-      case kQueueCAS:
-        return new WorkerQueue{reinterpret_cast<QueueCAS *>(queue_), exec_num, random_seed};
-      case kQueueMwCAS:
-        return new WorkerQueue{reinterpret_cast<QueueMwCAS *>(queue_), exec_num, random_seed};
-      case kQueueMutex:
-        return new WorkerQueue{reinterpret_cast<QueueMutex *>(queue_), exec_num, random_seed};
-      default:
-        return nullptr;
-    }
-  }
-
-  /**
-   * @brief Run a worker thread to measure throuput and latency.
-   *
-   * @param p a promise of a worker pointer that holds benchmark results
-   * @param target a target implementation
-   * @param random_seed a random seed
-   */
-  void
-  RunWorker(  //
-      std::promise<Worker *> p,
-      const BenchTarget target,
-      const size_t exec_num,
-      const size_t random_seed)
-  {
-    // prepare a worker
-    Worker *worker;
-
-    {  // create a lock to stop a main thread
-      const auto lock = std::shared_lock<std::shared_mutex>(mutex_2nd);
-      worker = CreateWorker(target, exec_num, random_seed);
-    }  // unlock to notice that this worker has been created
-
-    {  // wait for benchmark to be ready
-      const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st);
-      if (measure_throughput_) {
-        worker->MeasureThroughput();
-      } else {
-        worker->MeasureLatency();
-      }
-    }  // unlock to notice that this worker has measured thuroughput/latency
-
-    {  // wait for all workers to finish
-      const auto guard = std::shared_lock<std::shared_mutex>(mutex_2nd);
-      worker->SortExecutionTimes();
-    }
-
-    p.set_value(worker);
-  }
+  using Worker_t = Worker<MwCASImplementation>;
+  using ZipfGenerator = ::dbgroup::random::zipf::ZipfGenerator;
 
  public:
   /*################################################################################################
-   * Public constructors/destructors
+   * Public constructors and assignment operators
    *##############################################################################################*/
 
+  /**
+   * @brief Construct a new Mw C A S Bench object.
+   *
+   * @param total_field_num the total number of target fields.
+   * @param target_num the number of MwCAS targets for each operation.
+   * @param exec_num the total number of MwCAS operations for benchmarking.
+   * @param thread_num the number of execution threads.
+   * @param skew_parameter a skew parameter (based on Zipf's law).
+   * @param init_thread_num the number of worker threads for initialization.
+   * @param random_seed a base random seed.
+   * @param measure_throughput a flag to measure throughput (if true) or latency (if false).
+   */
   MwCASBench(  //
-      const size_t num_exec,
-      const size_t num_thread,
-      const size_t num_field,
-      const size_t num_target,
+      const size_t total_field_num,
+      const size_t target_num,
+      const size_t exec_num,
+      const size_t thread_num,
       const double skew_parameter,
+      const size_t init_thread_num,
       const size_t random_seed,
       const bool measure_throughput)
-      : exec_num_{num_exec},
-        thread_num_{num_thread},
-        target_field_num_{num_field},
-        mwcas_target_num_{num_target},
-        skew_parameter_{skew_parameter},
+      : target_num_{target_num},
+        total_exec_num_{exec_num},
+        thread_num_{thread_num},
         random_seed_{random_seed},
         measure_throughput_{measure_throughput},
-        zipf_engine_{num_field, skew_parameter},
-        queue_{nullptr}
+        target_fields_{total_field_num, nullptr},
+        zipf_engine_{total_field_num, skew_parameter}
   {
-    // prepare shared target fields
-    target_fields_ = std::make_unique<size_t[]>(target_field_num_);
-    InitializeTargetFields();
+    // a lambda function to initialize target fields
+    auto f = [&](const size_t begin_id, const size_t end_id) {
+      for (size_t i = begin_id; i < end_id; ++i) {
+        target_fields_[i] = new uint64_t{0};
+      }
+    };
+
+    // prepare MwCAS target fields
+    std::vector<std::thread> threads;
+    const size_t field_num = total_field_num / init_thread_num;
+    for (size_t i = 0, begin_id = 0; i < init_thread_num; ++i, begin_id += field_num) {
+      const auto end_id = (i < init_thread_num - 1) ? begin_id + field_num : total_field_num;
+      threads.emplace_back(f, begin_id, end_id);
+    }
+    for (auto &&t : threads) t.join();
+
+    // prepare descriptor pool for PMwCAS if needed
+    if constexpr (std::is_same_v<MwCASImplementation, PMwCAS>) {
+      // prepare PMwCAS descriptor pool
+      pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
+                          pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
+      pmwcas_desc_pool = std::make_unique<PMwCAS>(static_cast<uint32_t>(8192 * thread_num_),
+                                                  static_cast<uint32_t>(thread_num_));
+    }
+
+    if constexpr (std::is_same_v<MwCASImplementation, MwCAS>) {
+      Log("** Run our MwCAS **");
+    } else if constexpr (std::is_same_v<MwCASImplementation, PMwCAS>) {
+      Log("** Run PMwCAS **");
+    } else if constexpr (std::is_same_v<MwCASImplementation, SingleCAS>) {
+      Log("** Run single CAS **");
+    }
   }
 
-  ~MwCASBench() = default;
+  /*################################################################################################
+   * Public destructors
+   *##############################################################################################*/
+
+  /**
+   * @brief Destroy the MwCASBench object.
+   *
+   */
+  ~MwCASBench()
+  {
+    for (auto &&field : target_fields_) {
+      delete field;
+    }
+
+    Log("** Finish **\n");
+  }
 
   /*################################################################################################
    * Public utility functions
@@ -331,84 +141,61 @@ class MwCASBench
   /**
    * @brief Run MwCAS benchmark and output results to stdout.
    *
-   * @param target a target implementation
    */
   void
-  RunMwCASBench(const BenchTarget target)
+  Run()
   {
-    switch (target) {
-      case kPMwCAS:
-        // prepare PMwCAS descriptor pool
-        pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
-                            pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
-        desc_pool_ = std::make_unique<pmwcas::DescriptorPool>(
-            static_cast<uint32_t>(8192 * thread_num_), static_cast<uint32_t>(thread_num_));
-        break;
-      case kQueueCAS:
-        queue_ = new QueueCAS{};
-        break;
-      case kQueueMwCAS:
-        queue_ = new QueueMwCAS{};
-        break;
-      case kQueueMutex:
-        queue_ = new QueueMutex{};
-        break;
-      default:
-        break;
-    }
-
     /*----------------------------------------------------------------------------------------------
      * Preparation of benchmark workers
      *--------------------------------------------------------------------------------------------*/
-    std::vector<std::future<Worker *>> futures;
+    Log("...Prepare workers for benchmarking.");
+
+    std::vector<std::future<Worker_t *>> futures;
 
     {  // create a lock to stop workers from running
-      const auto lock = std::unique_lock<std::shared_mutex>(mutex_1st);
+      const auto lock = std::unique_lock<std::shared_mutex>(mutex_1st_);
 
       // create workers in each thread
       std::mt19937_64 rand_engine{random_seed_};
-      size_t sum_exec_num = 0;
+      const size_t total_sample_size =
+          (total_exec_num_ < kMaxLatencyNum) ? total_exec_num_ : kMaxLatencyNum;
+      size_t exec_num = total_exec_num_ / thread_num_;
+      size_t sample_num = total_sample_size / thread_num_;
       for (size_t i = 0; i < thread_num_; ++i) {
-        std::promise<Worker *> p;
+        if (i == thread_num_ - 1) {
+          exec_num = total_exec_num_ - exec_num * (thread_num_ - 1);
+          sample_num = total_sample_size - sample_num * (thread_num_ - 1);
+        }
+
+        std::promise<Worker_t *> p;
         futures.emplace_back(p.get_future());
-
-        const size_t exec_num =
-            (i < thread_num_ - 1) ? exec_num_ / thread_num_ : exec_num_ - sum_exec_num;
-        std::thread t{&MwCASBench::RunWorker, this, std::move(p), target, exec_num, rand_engine()};
-        t.detach();
-
-        sum_exec_num += exec_num;
+        std::thread{&MwCASBench::RunWorker, this, std::move(p), exec_num, sample_num, rand_engine()}
+            .detach();
       }
-      assert(sum_exec_num == exec_num_);
 
       // wait for all workers to be created
-      const auto guard = std::unique_lock<std::shared_mutex>(mutex_2nd);
-
-      InitializeTargetFields();
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      const auto guard = std::unique_lock<std::shared_mutex>(mutex_2nd_);
     }  // unlock to run workers
 
     /*----------------------------------------------------------------------------------------------
      * Measuring throughput/latency
      *--------------------------------------------------------------------------------------------*/
-    if (measure_throughput_) {
-      Log("Run workers to measure throughput...");
-    } else {
-      Log("Run workers to measure latency...");
-    }
+    Log("...Run workers.");
 
     {  // create a lock to stop workers from running
-      const auto lock = std::unique_lock<std::shared_mutex>(mutex_2nd);
+      const auto lock = std::unique_lock<std::shared_mutex>(mutex_2nd_);
 
       // wait for all workers to finish measuring throughput
-      const auto guard = std::unique_lock<std::shared_mutex>(mutex_1st);
+      const auto guard = std::unique_lock<std::shared_mutex>(mutex_1st_);
     }  // unlock to run workers
 
     /*----------------------------------------------------------------------------------------------
      * Output benchmark results
      *--------------------------------------------------------------------------------------------*/
-    Log("Finish running...");
+    Log("...Finish running.");
 
-    std::vector<Worker *> results;
+    std::vector<Worker_t *> results;
     results.reserve(thread_num_);
     for (auto &&future : futures) {
       results.emplace_back(future.get());
@@ -424,4 +211,154 @@ class MwCASBench
       delete worker;
     }
   }
+
+ private:
+  /*################################################################################################
+   * Internal constants
+   *##############################################################################################*/
+
+  /// limit the target of latency calculation
+  static constexpr size_t kMaxLatencyNum = 1e6;
+
+  /// targets for calculating parcentile latency
+  static constexpr double kTargetPercentiles[] = {0.00, 0.01, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30,
+                                                  0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70,
+                                                  0.75, 0.80, 0.85, 0.90, 0.95, 0.99, 1.00};
+
+  /*################################################################################################
+   * Internal utility functions
+   *##############################################################################################*/
+
+  /**
+   * @brief Run a worker thread to measure throuput and latency.
+   *
+   * @param p a promise of a worker pointer that holds benchmark results.
+   * @param exec_num the number of operations to be executed by this worker.
+   * @param sample_num the number of samples to calculate percentile latency.
+   * @param random_seed a random seed.
+   */
+  void
+  RunWorker(  //
+      std::promise<Worker_t *> p,
+      const size_t exec_num,
+      const size_t sample_num,
+      const size_t random_seed)
+  {
+    // prepare a worker
+    Worker_t *worker;
+
+    {  // create a lock to stop a main thread
+      const auto lock = std::shared_lock<std::shared_mutex>(mutex_2nd_);
+      worker = new Worker_t{target_fields_, target_num_, exec_num, zipf_engine_, random_seed};
+    }  // unlock to notice that this worker has been created
+
+    {  // wait for benchmark to be ready
+      const auto guard = std::shared_lock<std::shared_mutex>(mutex_1st_);
+      if (measure_throughput_) {
+        worker->MeasureThroughput();
+      } else {
+        worker->MeasureLatency();
+      }
+    }  // unlock to notice that this worker has measured thuroughput/latency
+
+    if (!measure_throughput_) {
+      // wait for all workers to finish
+      const auto guard = std::shared_lock<std::shared_mutex>(mutex_2nd_);
+      worker->SortLatencies(sample_num);
+    }
+
+    p.set_value(worker);
+  }
+
+  /**
+   * @brief Compute a throughput score and output it to stdout.
+   *
+   * @param workers worker pointers that hold benchmark results.
+   */
+  void
+  LogThroughput(const std::vector<Worker_t *> &workers) const
+  {
+    size_t avg_nano_time = 0;
+    for (auto &&worker : workers) {
+      avg_nano_time += worker->GetTotalExecTime();
+    }
+    avg_nano_time /= thread_num_;
+
+    const auto throughput = total_exec_num_ / (avg_nano_time / 1E9);
+
+    if (output_as_csv) {
+      std::cout << throughput << std::endl;
+    } else {
+      std::cout << "Throughput [Ops/s]: " << throughput << std::endl;
+    }
+  }
+
+  /**
+   * @brief Compute percentiled latency and output it to stdout.
+   *
+   * @param workers worker pointers that hold benchmark results.
+   */
+  void
+  LogLatency(const std::vector<Worker_t *> &workers) const
+  {
+    std::vector<size_t> latencies;
+    latencies.reserve(kMaxLatencyNum);
+
+    // sort all execution time
+    for (auto &&worker : workers) {
+      auto worker_latencies = worker->GetLatencies();
+      latencies.insert(latencies.end(), worker_latencies.begin(), worker_latencies.end());
+    }
+    std::sort(latencies.begin(), latencies.end());
+
+    Log("Percentiled Latencies [ns]:");
+    for (auto &&percentile : kTargetPercentiles) {
+      const size_t percentiled_idx =
+          (percentile == 1.0) ? latencies.size() - 1 : latencies.size() * percentile;
+      if (!output_as_csv) {
+        std::cout << "  " << std::fixed << std::setprecision(2) << percentile << ": ";
+      }
+      std::cout << latencies[percentiled_idx];
+      if (!output_as_csv) {
+        std::cout << std::endl;
+      } else {
+        if (percentile < 1.0) {
+          std::cout << ",";
+        } else {
+          std::cout << std::endl;
+        }
+      }
+    }
+  }
+
+  /*################################################################################################
+   * Internal member variables
+   *##############################################################################################*/
+
+  /// the number of MwCAS targets for each operation
+  const size_t target_num_;
+
+  /// the total number of MwCAS operations for benchmarking
+  const size_t total_exec_num_;
+
+  /// the number of execution threads
+  const size_t thread_num_;
+
+  /// a base random seed
+  const size_t random_seed_;
+
+  /// a flag to measure throughput (if true) or latency (if false)
+  const bool measure_throughput_;
+
+  /// target fields of MwCAS
+  std::vector<uint64_t *> target_fields_;
+
+  /// a random engine according to Zipf's law
+  ZipfGenerator zipf_engine_;
+
+  /// a mutex to control workers
+  std::shared_mutex mutex_1st_;
+
+  /// a mutex to control workers
+  std::shared_mutex mutex_2nd_;
 };
