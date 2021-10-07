@@ -41,7 +41,6 @@ class Worker
    * Type aliases
    *##############################################################################################*/
 
-  using Clock = ::std::chrono::high_resolution_clock;
   using ZipfGenerator = ::dbgroup::random::zipf::ZipfGenerator;
   using MwCASTargets = ::std::array<uint64_t *, kMaxTargetNum>;
 
@@ -64,7 +63,7 @@ class Worker
       const size_t target_num,
       const size_t exec_num,
       ZipfGenerator &zipf_engine,
-      const size_t random_seed = 0)
+      const size_t random_seed)
       : total_exec_time_nano_{0}, target_num_{target_num}
   {
     // reserve capacity of dynamic arrays
@@ -195,21 +194,6 @@ class Worker
    * @param targets target addresses of a MwCAS operation.
    */
   void PerformMwCAS(const MwCASTargets &targets);
-
-  /**
-   * @tparam TimeStamp a type of timestamps.
-   * @param start_time a start timestamp.
-   * @param end_time an end timestamp.
-   * @return the duration of time in nanoseconds.
-   */
-  template <class TimeStamp>
-  constexpr size_t
-  GetNanoDuration(  //
-      const TimeStamp &start_time,
-      const TimeStamp &end_time)
-  {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
-  }
 
   /*################################################################################################
    * Internal member variables
