@@ -21,7 +21,7 @@ set(MWCAS_BENCH_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 #--------------------------------------------------------------------------------------#
 
 set(
-  MWCAS_BENCH_MAX_FIELD_NUM
+  MWCAS_BENCH_MAX_TARGET_NUM
   "8"
   CACHE STRING
   "The maximum number of target words of MwCAS."
@@ -34,7 +34,7 @@ set(
 set(MWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
 
 # set MwCAS capacity
-set(MWCAS_CAPACITY "${MWCAS_BENCH_MAX_FIELD_NUM}" CACHE STRING "" FORCE)
+set(MWCAS_CAPACITY "${MWCAS_BENCH_MAX_TARGET_NUM}" CACHE STRING "" FORCE)
 
 add_subdirectory("${MWCAS_SOURCE_DIR}")
 
@@ -48,7 +48,7 @@ set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/pmwcas")
 set(PMEM_BACKEND "Volatile" CACHE STRING "" FORCE)
 
 # set MwCAS capacity
-set(DESC_CAP "${MWCAS_BENCH_MAX_FIELD_NUM}" CACHE STRING "" FORCE)
+set(DESC_CAP "${MWCAS_BENCH_MAX_TARGET_NUM}" CACHE STRING "" FORCE)
 
 # prevent building Google libraries
 set(GOOGLE_FRAMEWORK OFF CACHE BOOL "" FORCE)
@@ -87,7 +87,10 @@ add_executable(
   mwcas_bench
   "${MWCAS_BENCH_SOURCE_DIR}/src/mwcas_bench.cpp"
 )
-target_compile_features(mwcas_bench PRIVATE "cxx_std_17")
+target_compile_features(
+  mwcas_bench PRIVATE
+  "cxx_std_17"
+)
 target_compile_options(
   mwcas_bench PRIVATE
   -Wall
@@ -98,7 +101,7 @@ target_compile_options(
 )
 target_compile_definitions(
   mwcas_bench PRIVATE
-  MWCAS_BENCH_MAX_FIELD_NUM=${MWCAS_BENCH_MAX_FIELD_NUM}
+  MWCAS_BENCH_MAX_TARGET_NUM=${MWCAS_BENCH_MAX_TARGET_NUM}
 )
 target_include_directories(
   mwcas_bench PRIVATE
@@ -115,8 +118,11 @@ target_link_libraries(
   cpp_utility
 )
 
-# build unit tests if required
-option(MWCAS_BENCH_BUILD_TESTS, "Build unit tests" OFF)
+#--------------------------------------------------------------------------------------#
+# Build unit tests
+#--------------------------------------------------------------------------------------#
+
+option(MWCAS_BENCH_BUILD_TESTS "Build unit tests" OFF)
 if(${MWCAS_BENCH_BUILD_TESTS})
   # enable CTest
   enable_testing()

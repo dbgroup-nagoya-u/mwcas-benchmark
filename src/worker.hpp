@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
 #include <memory>
 #include <random>
 #include <utility>
@@ -85,7 +86,7 @@ class Worker
       }
 
       // sort target addresses for linearization
-      std::sort(targets.begin(), targets.end());
+      std::sort(targets.begin(), targets.begin() + target_num);
 
       operations_.emplace_back(std::move(targets));
     }

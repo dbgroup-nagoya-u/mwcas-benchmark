@@ -38,9 +38,9 @@ using Clock = ::std::chrono::high_resolution_clock;
  * Global constants and enums
  *################################################################################################*/
 
-#ifdef MWCAS_BENCH_MAX_FIELD_NUM
+#ifdef MWCAS_BENCH_MAX_TARGET_NUM
 /// the maximum number of MwCAS targets
-constexpr size_t kMaxTargetNum = MWCAS_BENCH_MAX_FIELD_NUM;
+constexpr size_t kMaxTargetNum = MWCAS_BENCH_MAX_TARGET_NUM;
 #else
 constexpr size_t kMaxTargetNum = 8;
 #endif
