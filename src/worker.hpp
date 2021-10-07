@@ -26,14 +26,15 @@
 #include "common.hpp"
 #include "random/zipf.hpp"
 
+// declare PMwCAS's descriptor pool globally in order to define a templated worker class
 inline std::unique_ptr<PMwCAS> pmwcas_desc_pool = nullptr;
 
 /**
- * @brief A class for a worker thread for benchmarking.
+ * @brief A class of a worker thread for benchmarking.
  *
- * @tparam Wrapper
+ * @tparam MwCASImplementation An implementation of MwCAS algorithms.
  */
-template <class Wrapper>
+template <class MwCASImplementation>
 class Worker
 {
   /*################################################################################################
@@ -51,24 +52,27 @@ class Worker
   /**
    * @brief Construct a new Worker object.
    *
-   * @param operation_counts the number of operations executed in each thread
-   * @param random_seed a random seed
+   * @param target_fields target fields of MwCAS.
+   * @param target_num the number of MwCAS targets for each operation.
+   * @param exec_num the number of operations to be executed by this worker.
+   * @param zipf_engine a random engine according to Zipf's law.
+   * @param random_seed a random seed.
    */
   Worker(  //
       std::vector<uint64_t *> &target_fields,
       const size_t target_num,
-      const size_t operation_counts,
+      const size_t exec_num,
       ZipfGenerator &zipf_engine,
       const size_t random_seed = 0)
       : total_exec_time_nano_{0}, target_num_{target_num}
   {
     // reserve capacity of dynamic arrays
-    latencies_nano_.reserve(operation_counts);
-    operations_.reserve(operation_counts);
+    latencies_nano_.reserve(exec_num);
+    operations_.reserve(exec_num);
 
     // generate an operation-queue for benchmarking
     std::mt19937_64 rand_engine{random_seed};
-    for (size_t i = 0; i < operation_counts; ++i) {
+    for (size_t i = 0; i < exec_num; ++i) {
       // select target addresses for i-th operation
       MwCASTargets targets;
       for (size_t j = 0; j < target_num; ++j) {
@@ -91,6 +95,10 @@ class Worker
    * Public destructors
    *##############################################################################################*/
 
+  /**
+   * @brief Destroy the Worker object.
+   *
+   */
   ~Worker() = default;
 
   /*################################################################################################
@@ -139,6 +147,7 @@ class Worker
   /**
    * @brief Sort execution time to compute percentiled latency.
    *
+   * @param sample_num the number of samples to reduce computation cost.
    */
   void
   SortLatencies(const size_t sample_num)
@@ -159,6 +168,9 @@ class Worker
     latencies_nano_ = std::move(sampled_latencies);
   }
 
+  /**
+   * @return the sorted latencies.
+   */
   const std::vector<size_t> &
   GetLatencies() const
   {
@@ -166,7 +178,7 @@ class Worker
   }
 
   /**
-   * @return size_t total execution time
+   * @return total execution time.
    */
   size_t
   GetTotalExecTime() const
@@ -182,7 +194,7 @@ class Worker
   /**
    * @brief Perform a MwCAS operation based on its implementation.
    *
-   * @param targets target addresses of a MwCAS operation
+   * @param targets target addresses of a MwCAS operation.
    */
   void PerformMwCAS(const MwCASTargets &targets);
 

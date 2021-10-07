@@ -18,6 +18,8 @@
 
 #include <string>
 
+#include "gflags/gflags.h"
+
 /*##################################################################################################
  * CLI validators
  *################################################################################################*/
@@ -111,31 +113,21 @@ main(int argc, char *argv[])
 
   Log("=== Start MwCAS Benchmark ===\n");
   if (FLAGS_mwcas) {
-    auto bench = MwCASBench<MwCAS>{FLAGS_num_field,  FLAGS_num_target,     FLAGS_num_exec,
-                                   FLAGS_num_thread, FLAGS_skew_parameter, FLAGS_num_init_thread,
-                                   random_seed,      FLAGS_throughput};
-
-    Log("** Run our MwCAS **");
-    bench.Run();
-    Log("** Finish **\n");
+    MwCASBench<MwCAS>{FLAGS_num_field,      FLAGS_num_target,      FLAGS_num_exec, FLAGS_num_thread,
+                      FLAGS_skew_parameter, FLAGS_num_init_thread, random_seed,    FLAGS_throughput}
+        .Run();
   }
   if (FLAGS_pmwcas) {
-    auto bench = MwCASBench<PMwCAS>{FLAGS_num_field,  FLAGS_num_target,     FLAGS_num_exec,
-                                    FLAGS_num_thread, FLAGS_skew_parameter, FLAGS_num_init_thread,
-                                    random_seed,      FLAGS_throughput};
-
-    Log("** Run PMwCAS **");
-    bench.Run();
-    Log("** Finish **\n");
+    MwCASBench<PMwCAS>{FLAGS_num_field,  FLAGS_num_target,     FLAGS_num_exec,
+                       FLAGS_num_thread, FLAGS_skew_parameter, FLAGS_num_init_thread,
+                       random_seed,      FLAGS_throughput}
+        .Run();
   }
   if (FLAGS_single) {
-    auto bench = MwCASBench<SingleCAS>{
-        FLAGS_num_field,      FLAGS_num_target,      FLAGS_num_exec, FLAGS_num_thread,
-        FLAGS_skew_parameter, FLAGS_num_init_thread, random_seed,    FLAGS_throughput};
-
-    Log("** Run Single CAS **");
-    bench.Run();
-    Log("** Finish **\n");
+    MwCASBench<SingleCAS>{FLAGS_num_field,  FLAGS_num_target,     FLAGS_num_exec,
+                          FLAGS_num_thread, FLAGS_skew_parameter, FLAGS_num_init_thread,
+                          random_seed,      FLAGS_throughput}
+        .Run();
   }
   Log("==== End MwCAS Benchmark ====");
 

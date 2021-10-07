@@ -16,9 +16,6 @@
 
 #pragma once
 
-#include <gflags/gflags.h>
-#include <pmwcas.h>
-
 #include <algorithm>
 #include <future>
 #include <iomanip>
@@ -34,9 +31,13 @@
 #include "common.hpp"
 #include "worker.hpp"
 
+// use PMwCAS
+#include "pmwcas.h"
+
 /**
  * @brief A class to run MwCAS benchmark.
  *
+ * @tparam MwCASImplementation An implementation of MwCAS algorithms.
  */
 template <class MwCASImplementation>
 class MwCASBench
@@ -53,6 +54,18 @@ class MwCASBench
    * Public constructors and assignment operators
    *##############################################################################################*/
 
+  /**
+   * @brief Construct a new Mw C A S Bench object.
+   *
+   * @param total_field_num the total number of target fields.
+   * @param target_num the number of MwCAS targets for each operation.
+   * @param exec_num the total number of MwCAS operations for benchmarking.
+   * @param thread_num the number of execution threads.
+   * @param skew_parameter a skew parameter (based on Zipf's law).
+   * @param init_thread_num the number of worker threads for initialization.
+   * @param random_seed a base random seed.
+   * @param measure_throughput a flag to measure throughput (if true) or latency (if false).
+   */
   MwCASBench(  //
       const size_t total_field_num,
       const size_t target_num,
@@ -94,17 +107,31 @@ class MwCASBench
       pmwcas_desc_pool = std::make_unique<PMwCAS>(static_cast<uint32_t>(8192 * thread_num_),
                                                   static_cast<uint32_t>(thread_num_));
     }
+
+    if constexpr (std::is_same_v<MwCASImplementation, MwCAS>) {
+      Log("** Run our MwCAS **");
+    } else if constexpr (std::is_same_v<MwCASImplementation, PMwCAS>) {
+      Log("** Run PMwCAS **");
+    } else if constexpr (std::is_same_v<MwCASImplementation, SingleCAS>) {
+      Log("** Run single CAS **");
+    }
   }
 
   /*################################################################################################
    * Public destructors
    *##############################################################################################*/
 
+  /**
+   * @brief Destroy the MwCASBench object.
+   *
+   */
   ~MwCASBench()
   {
     for (auto &&field : target_fields_) {
       delete field;
     }
+
+    Log("** Finish **\n");
   }
 
   /*################################################################################################
@@ -190,7 +217,10 @@ class MwCASBench
    * Internal constants
    *##############################################################################################*/
 
+  /// limit the target of latency calculation
   static constexpr size_t kMaxLatencyNum = 1e6;
+
+  /// targets for calculating parcentile latency
   static constexpr double kTargetPercentiles[] = {0.00, 0.01, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30,
                                                   0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70,
                                                   0.75, 0.80, 0.85, 0.90, 0.95, 0.99, 1.00};
@@ -202,9 +232,10 @@ class MwCASBench
   /**
    * @brief Run a worker thread to measure throuput and latency.
    *
-   * @param p a promise of a worker pointer that holds benchmark results
-   * @param exec_num the number of operations to be executed by this worker
-   * @param random_seed a random seed
+   * @param p a promise of a worker pointer that holds benchmark results.
+   * @param exec_num the number of operations to be executed by this worker.
+   * @param sample_num the number of samples to calculate percentile latency.
+   * @param random_seed a random seed.
    */
   void
   RunWorker(  //
@@ -242,7 +273,7 @@ class MwCASBench
   /**
    * @brief Compute a throughput score and output it to stdout.
    *
-   * @param workers worker pointers that hold benchmark results
+   * @param workers worker pointers that hold benchmark results.
    */
   void
   LogThroughput(const std::vector<Worker_t *> &workers) const
@@ -265,7 +296,7 @@ class MwCASBench
   /**
    * @brief Compute percentiled latency and output it to stdout.
    *
-   * @param workers worker pointers that hold benchmark results
+   * @param workers worker pointers that hold benchmark results.
    */
   void
   LogLatency(const std::vector<Worker_t *> &workers) const
