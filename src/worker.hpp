@@ -41,6 +41,7 @@ class Worker
    * Type aliases
    *##############################################################################################*/
 
+  using Clock = ::std::chrono::high_resolution_clock;
   using ZipfGenerator = ::dbgroup::random::zipf::ZipfGenerator;
   using MwCASTargets = ::std::array<uint64_t *, kMaxTargetNum>;
 
@@ -115,14 +116,12 @@ class Worker
     assert(latencies_nano_.empty());
 
     for (auto &&operation : operations_) {
-      const auto start_time = std::chrono::high_resolution_clock::now();
+      const auto start_time = Clock::now();
 
       PerformMwCAS(operation);
 
-      const auto end_time = std::chrono::high_resolution_clock::now();
-      const auto exec_time =
-          std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
-      latencies_nano_.emplace_back(exec_time);
+      const auto end_time = Clock::now();
+      latencies_nano_.emplace_back(GetNanoDuration(start_time, end_time));
     }
   }
 
@@ -133,15 +132,14 @@ class Worker
   void
   MeasureThroughput()
   {
-    const auto start_time = std::chrono::high_resolution_clock::now();
+    const auto start_time = Clock::now();
 
     for (auto &&operation : operations_) {
       PerformMwCAS(operation);
     }
 
-    const auto end_time = std::chrono::high_resolution_clock::now();
-    total_exec_time_nano_ =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+    const auto end_time = Clock::now();
+    total_exec_time_nano_ = GetNanoDuration(start_time, end_time);
   }
 
   /**
@@ -197,6 +195,21 @@ class Worker
    * @param targets target addresses of a MwCAS operation.
    */
   void PerformMwCAS(const MwCASTargets &targets);
+
+  /**
+   * @tparam TimeStamp a type of timestamps.
+   * @param start_time a start timestamp.
+   * @param end_time an end timestamp.
+   * @return the duration of time in nanoseconds.
+   */
+  template <class TimeStamp>
+  constexpr size_t
+  GetNanoDuration(  //
+      const TimeStamp &start_time,
+      const TimeStamp &end_time)
+  {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+  }
 
   /*################################################################################################
    * Internal member variables
