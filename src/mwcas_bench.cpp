@@ -20,7 +20,7 @@
 
 #include "benchmarker.hpp"
 #include "mwcas_target.hpp"
-#include "operatoin_engine.hpp"
+#include "operation_engine.hpp"
 
 /*##################################################################################################
  * CLI validators

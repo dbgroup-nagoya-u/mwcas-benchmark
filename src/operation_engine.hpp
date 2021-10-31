@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "common.hpp"
-#include "operatoin.hpp"
+#include "operation.hpp"
 #include "random/zipf.hpp"
 
 class OperationEngine

@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "common.hpp"
-#include "operatoin.hpp"
+#include "operation.hpp"
 #include "pmwcas.h"
 
 // declare PMwCAS's descriptor pool globally in order to define a templated worker class
