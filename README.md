@@ -24,7 +24,7 @@ git clone --recursive git@github.com:dbgroup-nagoya-u/mwcas-benchmark.git
 
 ### Build Options
 
-- `MWCAS_BENCH_MAX_TARGET_NUM`: the maximum number of target words of MwCAS (default: `8`).
+- `MWCAS_BENCH_TARGET_NUM`: the number of target words of MwCAS (default: `2`).
 - `MWCAS_BENCH_BUILD_TESTS`: build unit tests for this repository if `ON` (default: `OFF`).
 
 ### Build and Run Unit Tests

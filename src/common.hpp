@@ -36,9 +36,9 @@ using SingleCAS = ::std::atomic_size_t;
  * Global constants and enums
  *################################################################################################*/
 
-#ifdef MWCAS_BENCH_MAX_TARGET_NUM
+#ifdef MWCAS_BENCH_TARGET_NUM
 /// the maximum number of MwCAS targets
-constexpr size_t kMaxTargetNum = MWCAS_BENCH_MAX_TARGET_NUM;
+constexpr size_t kTargetNum = MWCAS_BENCH_TARGET_NUM;
 #else
-constexpr size_t kMaxTargetNum = 8;
+constexpr size_t kTargetNum = 8;
 #endif

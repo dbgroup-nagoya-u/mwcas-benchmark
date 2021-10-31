@@ -73,7 +73,7 @@ class OperationEngine
     for (size_t i = 0; i < n; ++i) {
       // select target addresses for i-th operation
       Operation ops{};
-      for (size_t j = 0; j < kMaxTargetNum; ++j) {
+      for (size_t j = 0; j < kTargetNum; ++j) {
         auto addr = target_fields_[zipf_engine_(rand_engine)];
         while (!ops.SetAddr(j, addr)) addr = target_fields_[zipf_engine_(rand_engine)];
       }

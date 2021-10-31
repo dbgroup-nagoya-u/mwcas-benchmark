@@ -85,7 +85,7 @@ class Operation
    *##############################################################################################*/
 
   /// target addresses of an MwCAS operation
-  std::array<uint64_t *, kMaxTargetNum> targets_;
+  std::array<uint64_t *, kTargetNum> targets_;
 };
 
 #endif  // MWCAS_BENCHMARK_OPERATION_H

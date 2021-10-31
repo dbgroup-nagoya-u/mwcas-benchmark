@@ -22,8 +22,8 @@ set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/pmwcas")
 #--------------------------------------------------------------------------------------#
 
 set(
-  MWCAS_BENCH_MAX_TARGET_NUM
-  "8"
+  MWCAS_BENCH_TARGET_NUM
+  "2"
   CACHE STRING
   "The maximum number of target words of MwCAS."
 )
@@ -46,7 +46,7 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/cpp-benchmark")
 #--------------------------------------------------------------------------------------#
 
 # set MwCAS capacity
-set(MWCAS_CAPACITY "${MWCAS_BENCH_MAX_TARGET_NUM}" CACHE STRING "" FORCE)
+set(MWCAS_CAPACITY "${MWCAS_BENCH_TARGET_NUM}" CACHE STRING "" FORCE)
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
 
@@ -58,7 +58,7 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
 set(PMEM_BACKEND "Volatile" CACHE STRING "" FORCE)
 
 # set MwCAS capacity
-set(DESC_CAP "${MWCAS_BENCH_MAX_TARGET_NUM}" CACHE STRING "" FORCE)
+set(DESC_CAP "${MWCAS_BENCH_TARGET_NUM}" CACHE STRING "" FORCE)
 
 # prevent building Google libraries
 set(GOOGLE_FRAMEWORK OFF CACHE BOOL "" FORCE)
@@ -88,7 +88,7 @@ target_compile_options(mwcas_bench PRIVATE
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
 )
 target_compile_definitions(mwcas_bench PRIVATE
-  MWCAS_BENCH_MAX_TARGET_NUM=${MWCAS_BENCH_MAX_TARGET_NUM}
+  MWCAS_BENCH_TARGET_NUM=${MWCAS_BENCH_TARGET_NUM}
 )
 target_include_directories(mwcas_bench PRIVATE
   "${PMWCAS_SOURCE_DIR}/"

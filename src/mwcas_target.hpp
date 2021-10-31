@@ -114,7 +114,7 @@ MwCASTarget<MwCAS>::Execute(const Operation &ops)
 {
   while (true) {
     MwCAS desc{};
-    for (size_t i = 0; i < kMaxTargetNum; ++i) {
+    for (size_t i = 0; i < kTargetNum; ++i) {
       const auto addr = ops.GetAddr(i);
       const auto old_val = dbgroup::atomic::mwcas::ReadMwCASField<size_t>(addr);
       const auto new_val = old_val + 1;
@@ -135,7 +135,7 @@ MwCASTarget<PMwCAS>::Execute(const Operation &ops)
     auto desc = pmwcas_desc_pool->AllocateDescriptor();
     auto epoch = pmwcas_desc_pool->GetEpoch();
     epoch->Protect();
-    for (size_t i = 0; i < kMaxTargetNum; ++i) {
+    for (size_t i = 0; i < kTargetNum; ++i) {
       const auto addr = ops.GetAddr(i);
       const auto old_val = reinterpret_cast<PMwCASField *>(addr)->GetValueProtected();
       const auto new_val = old_val + 1;
@@ -152,7 +152,7 @@ template <>
 inline void
 MwCASTarget<SingleCAS>::Execute(const Operation &ops)
 {
-  for (size_t i = 0; i < kMaxTargetNum; ++i) {
+  for (size_t i = 0; i < kTargetNum; ++i) {
     auto target = reinterpret_cast<SingleCAS *>(ops.GetAddr(i));
     auto old_val = target->load(std::memory_order_relaxed);
     auto new_val = old_val + 1;

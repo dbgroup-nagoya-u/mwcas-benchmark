@@ -45,15 +45,15 @@ class WorkerFixture : public ::testing::Test
           std::make_unique<PMwCAS>(static_cast<uint32_t>(8192 * 1), static_cast<uint32_t>(1));
     }
 
-    target_fields.reserve(kMaxTargetNum);
-    for (size_t i = 0; i < kMaxTargetNum; ++i) {
+    target_fields.reserve(kTargetNum);
+    for (size_t i = 0; i < kTargetNum; ++i) {
       target_fields.emplace_back(new uint64_t{0});
     }
 
-    zipf_engine = ZipfGenerator{kMaxTargetNum, kSkewParameter};
+    zipf_engine = ZipfGenerator{kTargetNum, kSkewParameter};
 
-    worker = std::make_unique<Worker_t>(target_fields, kMaxTargetNum, kExecNum, zipf_engine,
-                                        kRandomSeed);
+    worker =
+        std::make_unique<Worker_t>(target_fields, kTargetNum, kExecNum, zipf_engine, kRandomSeed);
   }
 
   void
