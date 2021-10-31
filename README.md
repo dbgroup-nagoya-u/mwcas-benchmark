@@ -1,6 +1,6 @@
 # MwCAS Benchmark
 
-![Ubuntu-20.04](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/workflows/Ubuntu-20.04/badge.svg?branch=main)
+[![Ubuntu-20.04](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/actions/workflows/unit_tests.yaml/badge.svg?branch=main)](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/actions/workflows/unit_tests.yaml)
 
 ## Build
 
