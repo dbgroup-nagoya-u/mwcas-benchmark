@@ -17,6 +17,7 @@
 #ifndef MWCAS_BENCHMARK_OPERATION_H
 #define MWCAS_BENCHMARK_OPERATION_H
 
+#include <algorithm>
 #include <array>
 
 #include "common.hpp"
@@ -28,7 +29,7 @@ class Operation
    * Public constructors and assignment operators
    *##############################################################################################*/
 
-  Operation() : targets_{} { targets_.fill(nullptr); }
+  constexpr Operation() : targets_{} {}
 
   constexpr Operation(const Operation &) = default;
   constexpr Operation &operator=(const Operation &obj) = default;
@@ -48,15 +49,34 @@ class Operation
   constexpr uint64_t *
   GetAddr(const size_t i) const
   {
-    return targets_.at(i);
+    return targets_[i];
   }
 
-  void
+  bool
   SetAddr(  //
       const size_t i,
-      const uint64_t *addr)
+      uint64_t *addr)
   {
+    // check the target address has been already set
+    const auto cur_end = targets_.begin() + i;
+    if (std::find(targets_.begin(), cur_end, addr) != cur_end) return false;
+
     targets_[i] = addr;
+    return true;
+  }
+
+  /*################################################################################################
+   * Public utility functions
+   *##############################################################################################*/
+
+  /**
+   * @brief Sort target addresses to linearize MwCAS operations.
+   *
+   */
+  void
+  SortTargets()
+  {
+    std::sort(targets_.begin(), targets_.end());
   }
 
  private:
@@ -64,6 +84,7 @@ class Operation
    * Internal member variables
    *##############################################################################################*/
 
+  /// target addresses of an MwCAS operation
   std::array<uint64_t *, kMaxTargetNum> targets_;
 };
 
