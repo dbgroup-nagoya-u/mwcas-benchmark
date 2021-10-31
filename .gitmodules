@@ -7,9 +7,6 @@
 [submodule "external/cpp-utility"]
 	path = external/cpp-utility
 	url = https://github.com/dbgroup-nagoya-u/cpp-utility.git
-[submodule "external/gflags"]
-	path = external/gflags
-	url = https://github.com/gflags/gflags.git
 [submodule "external/cpp-benchmark"]
 	path = external/cpp-benchmark
 	url = git@github.com:dbgroup-nagoya-u/cpp-benchmark.git
