@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#pragma once
+#ifndef MWCAS_BENCHMARK_COMMON_H
+#define MWCAS_BENCHMARK_COMMON_H
 
 #include <atomic>  // sngle CAS implementation
 #include <cassert>
@@ -42,3 +43,5 @@ constexpr size_t kTargetNum = MWCAS_BENCH_TARGET_NUM;
 #else
 constexpr size_t kTargetNum = 8;
 #endif
+
+#endif  // MWCAS_BENCHMARK_COMMON_H
