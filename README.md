@@ -1,14 +1,6 @@
 # MwCAS Benchmark
 
-![Unit Tests](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/workflows/Unit%20Tests/badge.svg?branch=main)
-
-## Tested Environment
-
-| Item | Value |
-| --- | --- |
-| OS | Ubuntu 20.04.2 LTS |
-| g++ | ver. 9.3.0 |
-| cmake | ver. 3.16.3 |
+[![Ubuntu-20.04](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/actions/workflows/unit_tests.yaml/badge.svg?branch=main)](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/actions/workflows/unit_tests.yaml)
 
 ## Build
 
@@ -17,14 +9,17 @@
 Note: `libnuma-dev` is required to build Microsoft's PMwCAS.
 
 ```bash
-sudo apt update && sudo apt install -y build-essential cmake libnuma-dev
+sudo apt update && sudo apt install -y build-essential cmake libgflags-dev libnuma-dev
 cd <path_to_your_workspace>
 git clone --recursive git@github.com:dbgroup-nagoya-u/mwcas-benchmark.git
 ```
 
-### Build Options
+### Build Options for Benchmarking
 
-- `MWCAS_BENCH_MAX_TARGET_NUM`: the maximum number of target words of MwCAS (default: `8`).
+- `MWCAS_BENCH_TARGET_NUM`: the number of target words of MwCAS (default: `2`).
+
+### Build Options for Testing
+
 - `MWCAS_BENCH_BUILD_TESTS`: build unit tests for this repository if `ON` (default: `OFF`).
 
 ### Build and Run Unit Tests
