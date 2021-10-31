@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-#include "mwcas_bench.hpp"
+#include <gflags/gflags.h>
 
 #include <string>
 
-#include "gflags/gflags.h"
+#include "benchmarker.hpp"
+#include "mwcas_target.hpp"
+#include "operatoin_engine.hpp"
 
 /*##################################################################################################
  * CLI validators
@@ -47,17 +49,6 @@ ValidateNonZero(const char *flagname, const Number value)
 }
 
 static bool
-ValidateTargetNum([[maybe_unused]] const char *flagname, const uint64_t value)
-{
-  if (value > 0 && value <= kMaxTargetNum) {
-    return true;
-  }
-  std::cout << "The number of MwCAS targets must be between [1, " << kMaxTargetNum << "]"
-            << std::endl;
-  return false;
-}
-
-static bool
 ValidateRandomSeed([[maybe_unused]] const char *flagname, const std::string &seed)
 {
   if (seed.empty()) {
@@ -79,8 +70,6 @@ ValidateRandomSeed([[maybe_unused]] const char *flagname, const std::string &see
 
 DEFINE_uint64(num_field, 1000000, "The total number of target fields");
 DEFINE_validator(num_field, &ValidateNonZero);
-DEFINE_uint64(num_target, 2, "The number of targets for each MwCAS");
-DEFINE_validator(num_target, &ValidateTargetNum);
 DEFINE_uint64(num_exec, 10000000, "The total number of MwCAS operations");
 DEFINE_validator(num_exec, &ValidateNonZero);
 DEFINE_uint64(num_thread, 8, "The number of worker threads for benchmarking");
@@ -91,11 +80,31 @@ DEFINE_uint64(num_init_thread, 8, "The number of worker threads for initializati
 DEFINE_validator(num_init_thread, &ValidateNonZero);
 DEFINE_string(seed, "", "A random seed to control reproducibility");
 DEFINE_validator(seed, &ValidateRandomSeed);
+DEFINE_bool(csv, false, "Output benchmark results as CSV format");
+DEFINE_bool(throughput, true, "true: measure throughput, false: measure latency");
 DEFINE_bool(mwcas, true, "Use our MwCAS library as a benchmark target");
 DEFINE_bool(pmwcas, true, "Use the PMwCAS library as a benchmark target");
 DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
-DEFINE_bool(csv, false, "Output benchmark results as CSV format");
-DEFINE_bool(throughput, true, "true: measure throughput, false: measure latency");
+
+/*##################################################################################################
+ * Utility functions
+ *################################################################################################*/
+
+template <class Implementation>
+void
+RunBenchmark()
+{
+  using MwCASTarget_t = MwCASTarget<Implementation>;
+  using Bench_t = ::dbgroup::benchmark::Benchmarker<MwCASTarget_t, Operation, OperationEngine>;
+
+  MwCASTarget_t target{FLAGS_num_field, FLAGS_num_init_thread, FLAGS_num_thread};
+  OperationEngine ops_engine{target.ReferTargetFields(), FLAGS_skew_parameter};
+  const auto random_seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
+
+  Bench_t bench{FLAGS_num_exec, FLAGS_num_thread, random_seed, target,
+                ops_engine,     FLAGS_throughput, FLAGS_csv};
+  bench.Run();
+}
 
 /*##################################################################################################
  * Main function
@@ -108,28 +117,10 @@ main(int argc, char *argv[])
   gflags::SetUsageMessage("measures throughput/latency of MwCAS implementations.");
   gflags::ParseCommandLineFlags(&argc, &argv, false);
 
-  output_as_csv = FLAGS_csv;
-  const auto random_seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
-
-  Log("=== Start MwCAS Benchmark ===\n");
-  if (FLAGS_mwcas) {
-    MwCASBench<MwCAS>{FLAGS_num_field,      FLAGS_num_target,      FLAGS_num_exec, FLAGS_num_thread,
-                      FLAGS_skew_parameter, FLAGS_num_init_thread, random_seed,    FLAGS_throughput}
-        .Run();
-  }
-  if (FLAGS_pmwcas) {
-    MwCASBench<PMwCAS>{FLAGS_num_field,  FLAGS_num_target,     FLAGS_num_exec,
-                       FLAGS_num_thread, FLAGS_skew_parameter, FLAGS_num_init_thread,
-                       random_seed,      FLAGS_throughput}
-        .Run();
-  }
-  if (FLAGS_single) {
-    MwCASBench<SingleCAS>{FLAGS_num_field,  FLAGS_num_target,     FLAGS_num_exec,
-                          FLAGS_num_thread, FLAGS_skew_parameter, FLAGS_num_init_thread,
-                          random_seed,      FLAGS_throughput}
-        .Run();
-  }
-  Log("==== End MwCAS Benchmark ====");
+  // run benchmark for each implementaton
+  if (FLAGS_mwcas) RunBenchmark<MwCAS>();
+  if (FLAGS_pmwcas) RunBenchmark<PMwCAS>();
+  if (FLAGS_single) RunBenchmark<SingleCAS>();
 
   return 0;
 }
