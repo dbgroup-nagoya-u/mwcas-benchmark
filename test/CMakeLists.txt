@@ -71,4 +71,4 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
 endfunction()
 
 # add unit tests to build targets
-ADD_MWCAS_BENCH_TEST("worker_test")
+# ADD_MWCAS_BENCH_TEST("worker_test")
