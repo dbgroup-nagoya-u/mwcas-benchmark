@@ -9,7 +9,7 @@ endif()
 project(
   mwcas_bench
   VERSION "0.1.0"
-  DESCRIPTION "A template project for C++ language."
+  DESCRIPTION "A benchmark program for MwCAS implementations."
   LANGUAGES "CXX"
 )
 
