@@ -18,7 +18,7 @@
 
 #include <string>
 
-#include "benchmarker.hpp"
+#include "benchmark/benchmarker.hpp"
 #include "mwcas_target.hpp"
 #include "operation_engine.hpp"
 
@@ -92,7 +92,7 @@ DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
 
 template <class Implementation>
 void
-RunBenchmark()
+RunBenchmark(const std::string &target_name)
 {
   using MwCASTarget_t = MwCASTarget<Implementation>;
   using Bench_t = ::dbgroup::benchmark::Benchmarker<MwCASTarget_t, Operation, OperationEngine>;
@@ -101,8 +101,8 @@ RunBenchmark()
   OperationEngine ops_engine{target.ReferTargetFields(), FLAGS_skew_parameter};
   const auto random_seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
 
-  Bench_t bench{FLAGS_num_exec, FLAGS_num_thread, random_seed, target,
-                ops_engine,     FLAGS_throughput, FLAGS_csv};
+  Bench_t bench{target,      ops_engine,       FLAGS_num_exec, FLAGS_num_thread,
+                random_seed, FLAGS_throughput, FLAGS_csv,      target_name};
   bench.Run();
 }
 
@@ -118,9 +118,9 @@ main(int argc, char *argv[])
   gflags::ParseCommandLineFlags(&argc, &argv, false);
 
   // run benchmark for each implementaton
-  if (FLAGS_mwcas) RunBenchmark<MwCAS>();
-  if (FLAGS_pmwcas) RunBenchmark<PMwCAS>();
-  if (FLAGS_single) RunBenchmark<SingleCAS>();
+  if (FLAGS_mwcas) RunBenchmark<MwCAS>("MwCAS without GC");
+  if (FLAGS_pmwcas) RunBenchmark<PMwCAS>("PMwCAS");
+  if (FLAGS_single) RunBenchmark<SingleCAS>("Single CAS");
 
   return 0;
 }
