@@ -116,7 +116,7 @@ MwCASTarget<MwCAS>::Execute(const Operation &ops)
     MwCAS desc{};
     for (size_t i = 0; i < kTargetNum; ++i) {
       const auto addr = ops.GetAddr(i);
-      const auto old_val = dbgroup::atomic::mwcas::ReadMwCASField<size_t>(addr);
+      const auto old_val = MwCAS::Read<size_t>(addr);
       const auto new_val = old_val + 1;
       desc.AddMwCASTarget(addr, old_val, new_val);
     }
