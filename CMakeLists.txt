@@ -114,7 +114,7 @@ target_link_libraries(mwcas_bench PRIVATE
   cpp_bench
 )
 
-option(MWCAS_BENCH_OVERRIDE_JEMALLOC "Override entire memory allocation with jemalloc" ON)
+option(MWCAS_BENCH_OVERRIDE_JEMALLOC "Override entire memory allocation with jemalloc" OFF)
 if(${MWCAS_BENCH_OVERRIDE_JEMALLOC})
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(JEMALLOC REQUIRED IMPORTED_TARGET jemalloc)

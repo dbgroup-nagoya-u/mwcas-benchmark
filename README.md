@@ -6,19 +6,28 @@
 
 ### Prerequisites
 
-Note: `libnuma-dev` is required to build Microsoft's PMwCAS.
+Note: `libnuma-dev` is required to build PMwCAS.
 
 ```bash
 sudo apt update && sudo apt install -y build-essential cmake libgflags-dev libnuma-dev
 cd <path_to_your_workspace>
 git clone --recursive git@github.com:dbgroup-nagoya-u/mwcas-benchmark.git
+cd mwcas-benchmark
 ```
 
-### Build Options for Benchmarking
+### Build Options
+
+#### Parameters for Benchmarking
 
 - `MWCAS_BENCH_TARGET_NUM`: the number of target words of MwCAS (default: `2`).
+- `MWCAS_BENCH_OVERRIDE_JEMALLOC`: override entire memory allocation with jemalloc if `ON` (default: `OFF`).
+    - We assume that jemalloc is configured with the following command.
 
-### Build Options for Testing
+    ```bash
+    ./configure --prefix=/usr/local --with-version=VERSION
+    ```
+
+#### Parameters for Unit Testing
 
 - `MWCAS_BENCH_BUILD_TESTS`: build unit tests for this repository if `ON` (default: `OFF`).
 
