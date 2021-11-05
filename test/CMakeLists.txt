@@ -57,6 +57,7 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
   target_link_libraries(${MWCAS_BENCH_TEST_TARGET} PRIVATE
     mwcas
     pmwcas_static
+    mwcas_aopt
     rt
     gtest_main
     cpp_utility

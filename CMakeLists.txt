@@ -70,6 +70,15 @@ set(BUILD_APPS OFF CACHE BOOL "" FORCE)
 add_subdirectory("${PMWCAS_SOURCE_DIR}")
 
 #--------------------------------------------------------------------------------------#
+# Configure AOPT
+#--------------------------------------------------------------------------------------#
+
+set(MWCAS_AOPT_MWCAS_CAPACITY "${MWCAS_BENCH_TARGET_NUM}" CACHE STRING "" FORCE)
+set(MWCAS_AOPT_GC_WORKER_THREADS "8" CACHE STRING "" FORCE)
+
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas-aopt")
+
+#--------------------------------------------------------------------------------------#
 # Build Benchmark
 #--------------------------------------------------------------------------------------#
 
@@ -98,11 +107,25 @@ target_include_directories(mwcas_bench PRIVATE
 target_link_libraries(mwcas_bench PRIVATE
   mwcas
   pmwcas_static
+  mwcas_aopt
   rt
   gflags
   cpp_utility
   cpp_bench
 )
+
+option(MWCAS_BENCH_OVERRIDE_JEMALLOC "Override entire memory allocation with jemalloc" OFF)
+if(${MWCAS_BENCH_OVERRIDE_JEMALLOC})
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(JEMALLOC REQUIRED IMPORTED_TARGET jemalloc)
+
+  target_include_directories(mwcas_bench PRIVATE
+    ${JEMALLOC_INCLUDE_DIRS}
+  )
+  target_link_libraries(mwcas_bench PRIVATE
+    PkgConfig::JEMALLOC
+  )
+endif()
 
 #--------------------------------------------------------------------------------------#
 # Build unit tests
