@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "aopt/aopt_descriptor.hpp"    // AOPT implementation
 #include "mwcas/mwcas.h"               // PMwCAS implementation
 #include "mwcas/mwcas_descriptor.hpp"  // our MwCAS without GC implementation
 
@@ -31,6 +32,7 @@
 
 using MwCAS = ::dbgroup::atomic::mwcas::MwCASDescriptor;
 using PMwCAS = ::pmwcas::DescriptorPool;
+using AOPT = ::dbgroup::atomic::aopt::AOPTDescriptor;
 using SingleCAS = ::std::atomic_size_t;
 
 /*##################################################################################################

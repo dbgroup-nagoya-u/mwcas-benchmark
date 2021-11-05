@@ -150,6 +150,23 @@ MwCASTarget<PMwCAS>::Execute(const Operation &ops)
 
 template <>
 inline void
+MwCASTarget<AOPT>::Execute(const Operation &ops)
+{
+  while (true) {
+    auto desc = new AOPT{};
+    for (size_t i = 0; i < kTargetNum; ++i) {
+      const auto addr = ops.GetAddr(i);
+      const auto old_val = AOPT::Read<size_t>(addr);
+      const auto new_val = old_val + 1;
+      desc->AddMwCASTarget(addr, old_val, new_val);
+    }
+
+    if (desc->MwCAS()) break;
+  }
+}
+
+template <>
+inline void
 MwCASTarget<SingleCAS>::Execute(const Operation &ops)
 {
   for (size_t i = 0; i < kTargetNum; ++i) {

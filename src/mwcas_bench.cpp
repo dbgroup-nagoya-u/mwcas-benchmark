@@ -84,6 +84,7 @@ DEFINE_bool(csv, false, "Output benchmark results as CSV format");
 DEFINE_bool(throughput, true, "true: measure throughput, false: measure latency");
 DEFINE_bool(mwcas, true, "Use our MwCAS library as a benchmark target");
 DEFINE_bool(pmwcas, true, "Use the PMwCAS library as a benchmark target");
+DEFINE_bool(aopt, true, "Use AOPT library as a benchmark target");
 DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
 
 /*##################################################################################################
@@ -120,6 +121,7 @@ main(int argc, char *argv[])
   // run benchmark for each implementaton
   if (FLAGS_mwcas) RunBenchmark<MwCAS>("MwCAS without GC");
   if (FLAGS_pmwcas) RunBenchmark<PMwCAS>("PMwCAS");
+  if (FLAGS_aopt) RunBenchmark<AOPT>("AOPT");
   if (FLAGS_single) RunBenchmark<SingleCAS>("Single CAS");
 
   return 0;
