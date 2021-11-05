@@ -40,6 +40,7 @@
     "gflags",
     "GLOG",
     "gtest",
+    "JEMALLOC",
     "JPNP",
     "KAKENHI",
     "libgflags",
