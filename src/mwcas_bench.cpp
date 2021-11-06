@@ -98,6 +98,10 @@ RunBenchmark(const std::string &target_name)
   using MwCASTarget_t = MwCASTarget<Implementation>;
   using Bench_t = ::dbgroup::benchmark::Benchmarker<MwCASTarget_t, Operation, OperationEngine>;
 
+  if constexpr (std::is_same_v<Implementation, AOPT>) {
+    AOPT::StartGC();
+  }
+
   MwCASTarget_t target{FLAGS_num_field, FLAGS_num_init_thread, FLAGS_num_thread};
   OperationEngine ops_engine{target.ReferTargetFields(), FLAGS_skew_parameter};
   const auto random_seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
@@ -105,6 +109,10 @@ RunBenchmark(const std::string &target_name)
   Bench_t bench{target,      ops_engine,       FLAGS_num_exec, FLAGS_num_thread,
                 random_seed, FLAGS_throughput, FLAGS_csv,      target_name};
   bench.Run();
+
+  if constexpr (std::is_same_v<Implementation, AOPT>) {
+    AOPT::StopGC();
+  }
 }
 
 /*##################################################################################################
