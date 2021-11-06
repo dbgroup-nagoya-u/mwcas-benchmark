@@ -74,7 +74,6 @@ add_subdirectory("${PMWCAS_SOURCE_DIR}")
 #--------------------------------------------------------------------------------------#
 
 set(MWCAS_AOPT_MWCAS_CAPACITY "${MWCAS_BENCH_TARGET_NUM}" CACHE STRING "" FORCE)
-set(MWCAS_AOPT_GC_WORKER_THREADS "8" CACHE STRING "" FORCE)
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas-aopt")
 
