@@ -99,7 +99,7 @@ RunBenchmark(const std::string &target_name)
   using Bench_t = ::dbgroup::benchmark::Benchmarker<MwCASTarget_t, Operation, OperationEngine>;
 
   if constexpr (std::is_same_v<Implementation, AOPT>) {
-    AOPT::StartGC();
+    AOPT::StartGC(100000, 4);
   }
 
   MwCASTarget_t target{FLAGS_num_field, FLAGS_num_init_thread, FLAGS_num_thread};
