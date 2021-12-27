@@ -153,7 +153,7 @@ inline void
 MwCASTarget<AOPT>::Execute(const Operation &ops)
 {
   while (true) {
-    auto desc = new AOPT{};
+    auto desc = AOPT::GetDescriptor();
     for (size_t i = 0; i < kTargetNum; ++i) {
       const auto addr = ops.GetAddr(i);
       const auto old_val = AOPT::Read<size_t>(addr);
