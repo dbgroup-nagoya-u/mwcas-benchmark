@@ -1,6 +1,6 @@
 [submodule "external/mwcas"]
 	path = external/mwcas
-	url = git@github.com:dbgroup-nagoya-u/mwcas.git
+	url = https://github.com/dbgroup-nagoya-u/mwcas.git
 [submodule "external/pmwcas"]
 	path = external/pmwcas
 	url = https://github.com/microsoft/pmwcas.git
@@ -9,7 +9,7 @@
 	url = https://github.com/dbgroup-nagoya-u/cpp-utility.git
 [submodule "external/cpp-benchmark"]
 	path = external/cpp-benchmark
-	url = git@github.com:dbgroup-nagoya-u/cpp-benchmark.git
+	url = https://github.com/dbgroup-nagoya-u/cpp-benchmark.git
 [submodule "external/mwcas-aopt"]
 	path = external/mwcas-aopt
-	url = git@github.com:dbgroup-nagoya-u/mwcas-aopt.git
+	url = https://github.com/dbgroup-nagoya-u/mwcas-aopt.git
