@@ -67,3 +67,4 @@ endfunction()
 
 # add unit tests to build targets
 ADD_MWCAS_BENCH_TEST("operation_test")
+ADD_MWCAS_BENCH_TEST("queue_test")
