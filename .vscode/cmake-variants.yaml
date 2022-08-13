@@ -8,6 +8,7 @@ buildType:
       buildType: Debug
       settings:
         MWCAS_BENCH_TARGET_NUM: 2
+        MWCAS_BENCH_OVERRIDE_JEMALLOC: OFF
         MWCAS_BENCH_BUILD_TESTS: ON
     relWithDebInfo:
       short: RelWithDebInfo
@@ -15,6 +16,7 @@ buildType:
       buildType: RelWithDebInfo
       settings:
         MWCAS_BENCH_TARGET_NUM: 2
+        MWCAS_BENCH_OVERRIDE_JEMALLOC: OFF
         MWCAS_BENCH_BUILD_TESTS: ON
     release:
       short: Release
@@ -22,4 +24,5 @@ buildType:
       buildType: Release
       settings:
         MWCAS_BENCH_TARGET_NUM: 2
+        MWCAS_BENCH_OVERRIDE_JEMALLOC: OFF
         MWCAS_BENCH_BUILD_TESTS: ON
