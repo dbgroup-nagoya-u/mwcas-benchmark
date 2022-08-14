@@ -26,6 +26,7 @@
 #include "queue/queue_cas.hpp"
 #include "queue/queue_mutex.hpp"
 #include "queue/queue_mwcas.hpp"
+#include "queue/queue_pmwcas.hpp"
 
 namespace dbgroup::container::test
 {
@@ -144,7 +145,8 @@ class QueueFixture : public ::testing::Test
 using TestTargets = ::testing::Types<  //
     QueueMutex<size_t>,
     QueueCAS<size_t>,
-    QueueMwCAS<size_t>  //
+    QueueMwCAS<size_t>
+    // QueuePMwCAS<size_t>  // unstable
     >;
 TYPED_TEST_SUITE(QueueFixture, TestTargets);
 

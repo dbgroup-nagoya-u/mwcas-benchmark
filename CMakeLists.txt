@@ -103,6 +103,7 @@ target_compile_options(mwcas_bench PRIVATE
 )
 target_compile_definitions(mwcas_bench PRIVATE
   MWCAS_BENCH_TARGET_NUM=${MWCAS_BENCH_TARGET_NUM}
+  DESC_CAP=${MWCAS_BENCH_TARGET_NUM}
 )
 target_include_directories(mwcas_bench PRIVATE
   "${MWCAS_BENCH_SOURCE_DIR}/src"

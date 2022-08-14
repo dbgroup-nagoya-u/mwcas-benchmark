@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-#ifndef MWCAS_BENCHMARK_QUEUE_QUEUE_MWCAS_H
-#define MWCAS_BENCHMARK_QUEUE_QUEUE_MWCAS_H
+#ifndef MWCAS_BENCHMARK_QUEUE_QUEUE_PMWCAS_H
+#define MWCAS_BENCHMARK_QUEUE_QUEUE_PMWCAS_H
 
 #include <optional>
 
+// external libraries
+#include "mwcas/mwcas.h"
+#include "pmwcas.h"
+
 // organization libraries
 #include "memory/epoch_based_gc.hpp"
-#include "mwcas/mwcas_descriptor.hpp"
 
 namespace dbgroup::container
 {
@@ -31,7 +34,7 @@ namespace dbgroup::container
  *
  */
 template <class T>
-class QueueMwCAS
+class QueuePMwCAS
 {
   /*####################################################################################
    * Type aliases
@@ -45,18 +48,26 @@ class QueueMwCAS
    *##################################################################################*/
 
   /**
-   * @brief Construct a new QueueMwCAS object.
+   * @brief Construct a new QueuePMwCAS object.
    *
    * The object uses our MwCAS library to perform thread-safe push/pop operations.
    */
-  QueueMwCAS() = default;
+  explicit QueuePMwCAS(const size_t thread_num = 8)
+  {
+    pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
+                        pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
+    desc_pool_ = std::make_unique<pmwcas::DescriptorPool>(static_cast<uint32_t>(8192 * thread_num),
+                                                          static_cast<uint32_t>(thread_num));
+  }
 
   /**
-   * @brief Destroy the QueueMwCAS object
+   * @brief Destroy the QueuePMwCAS object
    *
    */
-  ~QueueMwCAS()
+  ~QueuePMwCAS()
   {
+    pmwcas::UninitLibrary();
+
     while (!empty()) {
       pop();
     }
@@ -74,15 +85,17 @@ class QueueMwCAS
 
     auto *page = gc_.template GetPageIfPossible<Node>();
     auto *new_node = (page) ? new (page) Node{x, nullptr} : new Node{x, nullptr};
-    std::atomic_thread_fence(std::memory_order_release);
     while (true) {
-      auto *back = MwCASDescriptor::Read<Node *>(&back_);
+      [[maybe_unused]] const pmwcas::EpochGuard epoch_guard{desc_pool_->GetEpoch()};
 
-      MwCASDescriptor desc{};
-      desc.AddMwCASTarget(&back_, back, new_node);
-      desc.AddMwCASTarget(&(back->next), kNullNode, new_node);
+      auto *back = ReadNodeProtected(&back_);
 
-      if (desc.MwCAS()) return;
+      auto *desc = desc_pool_->AllocateDescriptor();
+      desc->Initialize();
+      AddEntry(desc, &back_, back, new_node);
+      AddEntry(desc, &(back->next), kNullNode, new_node);
+
+      if (desc->MwCAS()) return;
     }
   }
 
@@ -94,7 +107,9 @@ class QueueMwCAS
 
     auto *front = front_.load(std::memory_order_relaxed);
     while (true) {
-      auto *new_front = MwCASDescriptor::Read<Node *>(&(front->next));
+      [[maybe_unused]] const pmwcas::EpochGuard epoch_guard{desc_pool_->GetEpoch()};
+
+      auto *new_front = ReadNodeProtected(&(front->next));
       if (new_front == nullptr) return std::nullopt;
       std::atomic_thread_fence(std::memory_order_acquire);
 
@@ -110,9 +125,10 @@ class QueueMwCAS
       -> bool
   {
     [[maybe_unused]] const auto &guard = gc_.CreateEpochGuard();
+    [[maybe_unused]] const pmwcas::EpochGuard epoch_guard{desc_pool_->GetEpoch()};
 
     auto *front = front_.load(std::memory_order_relaxed);
-    return MwCASDescriptor::Read<Node *>(&(front->next)) == nullptr;
+    return ReadNodeProtected(&(front->next)) == nullptr;
   }
 
  private:
@@ -141,6 +157,32 @@ class QueueMwCAS
   static constexpr Node *kNullNode = nullptr;
 
   /*####################################################################################
+   * Internal utility functions
+   *##################################################################################*/
+
+  auto
+  ReadNodeProtected(Node **addr)  //
+      -> Node *
+  {
+    return reinterpret_cast<Node *>(
+        reinterpret_cast<pmwcas::MwcTargetField<uintptr_t> *>(addr)->GetValueProtected());
+  }
+
+  void
+  AddEntry(  //
+      pmwcas::Descriptor *desc,
+      Node **addr,
+      Node *old_node,
+      Node *new_node)
+  {
+    auto *addr_ptr = reinterpret_cast<uintptr_t *>(addr);
+    auto old_addr = reinterpret_cast<uintptr_t>(old_node);
+    auto new_addr = reinterpret_cast<uintptr_t>(new_node);
+
+    desc->AddEntry(addr_ptr, old_addr, new_addr);
+  }
+
+  /*####################################################################################
    * Internal member variables
    *##################################################################################*/
 
@@ -152,8 +194,11 @@ class QueueMwCAS
 
   /// a garbage collector for deleted nodes in a queue
   ::dbgroup::memory::EpochBasedGC<Node> gc_{kGCInterval};
+
+  /// a pool for PMwCAS descriptors.
+  std::unique_ptr<pmwcas::DescriptorPool> desc_pool_{nullptr};
 };
 
 }  // namespace dbgroup::container
 
-#endif  // MWCAS_BENCHMARK_QUEUE_QUEUE_MWCAS_H
+#endif  // MWCAS_BENCHMARK_QUEUE_QUEUE_PMWCAS_H
