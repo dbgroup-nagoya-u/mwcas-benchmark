@@ -23,6 +23,7 @@
 #include "gtest/gtest.h"
 
 // local sources
+#include "queue/queue_cas.hpp"
 #include "queue/queue_mutex.hpp"
 #include "queue/queue_mwcas.hpp"
 
@@ -140,7 +141,11 @@ class QueueFixture : public ::testing::Test
  * Preparation for typed testing
  *####################################################################################*/
 
-using TestTargets = ::testing::Types<QueueMutex<size_t>, QueueMwCAS<size_t>>;
+using TestTargets = ::testing::Types<  //
+    QueueMutex<size_t>,
+    QueueCAS<size_t>,
+    QueueMwCAS<size_t>  //
+    >;
 TYPED_TEST_SUITE(QueueFixture, TestTargets);
 
 /*######################################################################################
