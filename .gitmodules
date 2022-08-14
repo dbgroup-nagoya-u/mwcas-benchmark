@@ -13,3 +13,6 @@
 [submodule "external/mwcas-aopt"]
 	path = external/mwcas-aopt
 	url = https://github.com/dbgroup-nagoya-u/mwcas-aopt.git
+[submodule "external/memory-manager"]
+	path = external/memory-manager
+	url = https://github.com/dbgroup-nagoya-u/memory-manager.git

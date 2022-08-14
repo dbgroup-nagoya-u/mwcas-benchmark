@@ -42,6 +42,12 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/cpp-utility")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/cpp-benchmark")
 
 #--------------------------------------------------------------------------------------#
+# Configure GC
+#--------------------------------------------------------------------------------------#
+
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/memory-manager")
+
+#--------------------------------------------------------------------------------------#
 # Configure MwCAS
 #--------------------------------------------------------------------------------------#
 
@@ -97,8 +103,10 @@ target_compile_options(mwcas_bench PRIVATE
 )
 target_compile_definitions(mwcas_bench PRIVATE
   MWCAS_BENCH_TARGET_NUM=${MWCAS_BENCH_TARGET_NUM}
+  DESC_CAP=${MWCAS_BENCH_TARGET_NUM}
 )
 target_include_directories(mwcas_bench PRIVATE
+  "${MWCAS_BENCH_SOURCE_DIR}/src"
   "${PMWCAS_SOURCE_DIR}/"
   "${PMWCAS_SOURCE_DIR}/src"
   "${PMWCAS_SOURCE_DIR}/include"
@@ -111,6 +119,7 @@ target_link_libraries(mwcas_bench PRIVATE
   gflags
   cpp_utility
   cpp_bench
+  memory_manager
 )
 
 option(MWCAS_BENCH_OVERRIDE_JEMALLOC "Override entire memory allocation with jemalloc" OFF)

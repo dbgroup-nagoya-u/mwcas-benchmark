@@ -47,6 +47,7 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
   )
   target_compile_definitions(${MWCAS_BENCH_TEST_TARGET} PRIVATE
     MWCAS_BENCH_TARGET_NUM=${MWCAS_BENCH_TARGET_NUM}
+    DESC_CAP=${MWCAS_BENCH_TARGET_NUM}
   )
   target_include_directories(${MWCAS_BENCH_TEST_TARGET} PRIVATE
     "${MWCAS_BENCH_SOURCE_DIR}/src"
@@ -67,3 +68,4 @@ endfunction()
 
 # add unit tests to build targets
 ADD_MWCAS_BENCH_TEST("operation_test")
+ADD_MWCAS_BENCH_TEST("queue_test")
