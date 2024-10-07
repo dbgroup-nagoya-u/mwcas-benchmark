@@ -1,17 +1,22 @@
 # MwCAS Benchmark
 
-[![Ubuntu-20.04](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/actions/workflows/unit_tests.yaml/badge.svg?branch=main)](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/actions/workflows/unit_tests.yaml)
+[![Ubuntu 24.04](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/actions/workflows/ubuntu_24.yaml/badge.svg)](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/actions/workflows/ubuntu_24.yaml) [![Ubuntu 22.04](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/actions/workflows/ubuntu_22.yaml/badge.svg)](https://github.com/dbgroup-nagoya-u/mwcas-benchmark/actions/workflows/ubuntu_22.yaml)
+
+- [Build](#build)
+    - [Prerequisites](#prerequisites)
+    - [Build Options](#build-options)
+    - [Build and Run Unit Tests](#build-and-run-unit-tests)
+- [Usage](#usage)
+- [Acknowledgments](#acknowledgments)
 
 ## Build
 
 ### Prerequisites
 
-Note: `libnuma-dev` is required to build PMwCAS.
-
 ```bash
-sudo apt update && sudo apt install -y build-essential cmake libgflags-dev libnuma-dev
+sudo apt update && sudo apt install -y build-essential cmake libgflags-dev
 cd <path_to_your_workspace>
-git clone --recursive git@github.com:dbgroup-nagoya-u/mwcas-benchmark.git
+git clone --recursive https://github.com/dbgroup-nagoya-u/mwcas-benchmark.git
 cd mwcas-benchmark
 ```
 
@@ -19,24 +24,24 @@ cd mwcas-benchmark
 
 #### Parameters for Benchmarking
 
-- `MWCAS_BENCH_TARGET_NUM`: the number of target words of MwCAS (default: `2`).
-- `MWCAS_BENCH_OVERRIDE_JEMALLOC`: override entire memory allocation with jemalloc if `ON` (default: `OFF`).
-    - We assume that jemalloc is configured with the following command.
-
-    ```bash
-    ./configure --prefix=/usr/local --with-version=VERSION
-    ```
+- `MWCAS_BENCH_TARGET_NUM`: The maximum number of target words of MwCAS (default `8`).
+- `MWCAS_BENCH_USE_PMWCAS`: A flag for using microsoft/pmwcas as a competitor (default `OFF`).
+    - If you use microsoft/pmwcas, you need to install `libnuma-dev` by `apt`.
+- `MWCAS_BENCH_USE_TBBMALLOC`: A flag for overriding entire memory allocation by Intel oneTBB malloc (default `OFF`).
+    - You can set up  [Intel OneAPI Base Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit.html) (i.e., Threading Building Blocks) by following [this instruction](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html?operatingsystem=linux&linux-install-type=apt). If you prefer to install oneTBB separately, you can use `intel-oneapi-tbb-devel` instead of `intel-basekit`.
 
 #### Parameters for Unit Testing
 
-- `MWCAS_BENCH_BUILD_TESTS`: build unit tests for this repository if `ON` (default: `OFF`).
+- `MWCAS_BENCH_BUILD_TESTS`: build unit tests for this repository if `ON` (default `OFF`).
 
 ### Build and Run Unit Tests
 
 ```bash
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release -DMWCAS_BENCH_BUILD_TESTS=ON ..
-make -j
+cmake .. \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DMWCAS_BENCH_BUILD_TESTS=ON
+cmake --build . --parallel --config Release
 ctest -C Release
 ```
 
@@ -48,7 +53,19 @@ The following command displays available CLI options:
 ./build/mwcas_bench --helpshort
 ```
 
-We prepare scripts in `bin` directory to measure performance with a variety of parameters. You can set parameters for benchmarking by `config/bench.env`.
+The benchmark program requires the number of target words.
+
+```bash
+./build/mwcas_bench --<competitor> <target_word_num>
+```
+
+For example, the following command performs 3wCAS benchmark with our MwCAS implementation.
+
+```bash
+./build/mwcas_bench --mwcas 3
+```
+
+We prepare scripts in `bin` directory to measure performance with a variety of parameters.
 
 ## Acknowledgments
 

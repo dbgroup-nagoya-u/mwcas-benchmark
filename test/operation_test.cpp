@@ -14,84 +14,84 @@
  * limitations under the License.
  */
 
-#include "operation.hpp"
+// the corresponding header
+#include "dbgroup/mwcas_benchmark/operation.hpp"
 
-#include <vector>
+// C++ standard libraries
+#include <cstddef>
+#include <cstdint>
 
+// external libraries
 #include "gtest/gtest.h"
 
+namespace dbgroup::benchmark::test
+{
 class OperationFixture : public ::testing::Test
 {
  protected:
-  /*################################################################################################
+  /*############################################################################
+   * Constants
+   *##########################################################################*/
+
+  static constexpr size_t kTargetNum = 8;
+
+  /*############################################################################
    * Setup/Teardown
-   *##############################################################################################*/
+   *##########################################################################*/
 
   void
   SetUp() override
   {
-    for (size_t i = 0; i < kTargetNum; ++i) {
-      addresses.emplace_back(new uint64_t{0});
-    }
   }
 
   void
   TearDown() override
   {
-    for (auto &&addr : addresses) {
-      delete addr;
-    }
   }
-
-  /*################################################################################################
-   * Member variables
-   *##############################################################################################*/
-
-  std::vector<uint64_t *> addresses;
 };
 
-/*--------------------------------------------------------------------------------------------------
+/*------------------------------------------------------------------------------
  * Test definitions
- *------------------------------------------------------------------------------------------------*/
+ *----------------------------------------------------------------------------*/
 
-TEST_F(OperationFixture, SetAddr_UniqueAddresses_CanGetSetAddresses)
+TEST_F(OperationFixture, SetPositionIfUniqueWithUniquePositionsSucceed)
 {
   Operation ops{};
 
   for (size_t i = 0; i < kTargetNum; ++i) {
-    EXPECT_TRUE(ops.SetAddr(i, addresses[i]));
+    EXPECT_TRUE(ops.SetPositionIfUnique(i));
   }
 
+  const auto &positions = ops.GetPositions();
   for (size_t i = 0; i < kTargetNum; ++i) {
-    const auto addr = ops.GetAddr(i);
-    EXPECT_EQ(addresses[i], addr);
-    EXPECT_EQ(0, *addr);
+    EXPECT_EQ(positions.at(i), i);
   }
 }
 
-TEST_F(OperationFixture, SetAddr_DuplicateAddress_SetAddressFail)
+TEST_F(OperationFixture, SetPositionIfUniqueWithDuplicatePositionsFail)
 {
   Operation ops{};
 
   if constexpr (kTargetNum > 1) {
-    ops.SetAddr(0, addresses[0]);
-    EXPECT_FALSE(ops.SetAddr(1, addresses[0]));
+    ops.SetPositionIfUnique(0);
+    EXPECT_FALSE(ops.SetPositionIfUnique(0));
   }
 }
 
-TEST_F(OperationFixture, SortTargets_UniqueAddress_AddressesSorted)
+TEST_F(OperationFixture, SortTargetsWithUniquePositionsSortInAscendingOrder)
 {
   Operation ops{};
 
-  for (size_t i = 0; i < kTargetNum; ++i) {
-    ops.SetAddr(i, addresses[i]);
+  for (int64_t i = kTargetNum - 1; i >= 0; --i) {
+    const size_t pos = i;
+    ops.SetPositionIfUnique(pos);
   }
   ops.SortTargets();
 
-  auto prev_addr = ops.GetAddr(0);
-  for (size_t i = 1; i < kTargetNum; ++i) {
-    const auto addr = ops.GetAddr(i);
-    EXPECT_LT(prev_addr, addr);
-    prev_addr = addr;
+  const auto &positions = ops.GetPositions();
+  for (size_t i = 0; i < kTargetNum; ++i) {
+    EXPECT_EQ(positions.at(i), i);
   }
 }
+
+}  // namespace dbgroup::benchmark::test
