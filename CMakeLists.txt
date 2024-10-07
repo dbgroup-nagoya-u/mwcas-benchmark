@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION "3.8")
+cmake_minimum_required(VERSION "3.11")
 
 # decline in-source build
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
@@ -13,86 +13,106 @@ project(
   LANGUAGES "CXX"
 )
 
-# define source directories
-set(MWCAS_BENCH_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-set(PMWCAS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/pmwcas")
+# enable features
+include(FetchContent)
 
-#--------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 # Set Compile Options
-#--------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 set(
-  MWCAS_BENCH_TARGET_NUM
-  "2"
+  MWCAS_BENCH_MAX_TARGET_NUM
+  "8"
   CACHE STRING
   "The maximum number of target words of MwCAS."
 )
 
-#--------------------------------------------------------------------------------------#
-# Configure external libraries
-#--------------------------------------------------------------------------------------#
+option(
+  MWCAS_BENCH_USE_PMWCAS
+  "A flag for using microsoft/pmwcas as a competitor."
+  OFF
+)
 
-# use gflags for CLI options
-find_package(gflags REQUIRED)
+option(
+  MWCAS_BENCH_USE_TBBMALLOC
+  "A flag for overriding entire memory allocation by Intel oneTBB malloc."
+  OFF
+)
 
-# our C++ utility
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/cpp-utility")
+#------------------------------------------------------------------------------#
+# Competitors
+#------------------------------------------------------------------------------#
 
-# our C++ benchmarker
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/cpp-benchmark")
-
-#--------------------------------------------------------------------------------------#
-# Configure GC
-#--------------------------------------------------------------------------------------#
-
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/memory-manager")
-
-#--------------------------------------------------------------------------------------#
-# Configure MwCAS
-#--------------------------------------------------------------------------------------#
-
-# set MwCAS capacity
-set(MWCAS_CAPACITY "${MWCAS_BENCH_TARGET_NUM}" CACHE STRING "" FORCE)
-
+# our MwCAS implementations
+set(MWCAS_CAPACITY "${MWCAS_BENCH_MAX_TARGET_NUM}" CACHE STRING "" FORCE)
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas")
 
-#--------------------------------------------------------------------------------------#
-# Configure PMwCAS
-#--------------------------------------------------------------------------------------#
+# microsoft/pmwcas
+if (${MWCAS_BENCH_USE_PMWCAS})
+  include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/microsoft_pmwcas.cmake")
+endif()
 
-# build volatile PMwCAS
-set(PMEM_BACKEND "Volatile" CACHE STRING "" FORCE)
+#------------------------------------------------------------------------------#
+# Configurations
+#------------------------------------------------------------------------------#
 
-# set MwCAS capacity
-set(DESC_CAP "${MWCAS_BENCH_TARGET_NUM}" CACHE STRING "" FORCE)
+# use command line options
+find_package(gflags REQUIRED)
 
-# prevent building Google libraries
-set(GOOGLE_FRAMEWORK OFF CACHE BOOL "" FORCE)
+# use an efficient memory allocator
+if (${MWCAS_BENCH_USE_TBBMALLOC})
+  find_package(TBB REQUIRED)
+endif()
 
-# prevent building unit tests
-set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-set(BUILD_APPS OFF CACHE BOOL "" FORCE)
+# use our utility
+FetchContent_Declare(
+  cpp-utility
+  GIT_REPOSITORY "https://github.com/dbgroup-nagoya-u/cpp-utility.git"
+  GIT_TAG "14008188d31fd77c99efec12c368b0aa874c1c2b"
+)
+FetchContent_MakeAvailable(cpp-utility)
 
-add_subdirectory("${PMWCAS_SOURCE_DIR}")
+# use our benchmark builder
+FetchContent_Declare(
+    cpp-benchmark
+    GIT_REPOSITORY "https://github.com/dbgroup-nagoya-u/cpp-benchmark.git"
+    GIT_TAG "9c2e9c1393ee359cf2a304c1239fddcf9847636b"
+)
+FetchContent_MakeAvailable(cpp-benchmark)
 
-#--------------------------------------------------------------------------------------#
-# Configure AOPT
-#--------------------------------------------------------------------------------------#
-
-set(MWCAS_AOPT_MWCAS_CAPACITY "${MWCAS_BENCH_TARGET_NUM}" CACHE STRING "" FORCE)
-
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/external/mwcas-aopt")
-
-#--------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 # Build Benchmark
-#--------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+
+# build as library for testing
+add_library(benchmarker STATIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/operation.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/operation_engine.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/mwcas_target.cpp"
+)
+target_compile_options(benchmarker PRIVATE
+  -Wall
+  -Wextra
+  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Release">:"-O2 -march=native">
+  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
+  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
+)
+target_compile_definitions(benchmarker PUBLIC
+  $<$<BOOL:${MWCAS_BENCH_USE_PMWCAS}>:MWCAS_BENCH_USE_PMWCAS>
+)
+target_include_directories(benchmarker PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+target_link_libraries(benchmarker PUBLIC
+  dbgroup::cpp_utility
+  dbgroup::cpp_bench
+  dbgroup::mwcas
+  $<$<BOOL:${MWCAS_BENCH_USE_PMWCAS}>:microsoft::pmwcas>
+)
 
 # build executable
 add_executable(mwcas_bench
-  "${MWCAS_BENCH_SOURCE_DIR}/src/mwcas_bench.cpp"
-)
-target_compile_features(mwcas_bench PRIVATE
-  "cxx_std_17"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/mwcas_bench.cpp"
 )
 target_compile_options(mwcas_bench PRIVATE
   -Wall
@@ -101,43 +121,15 @@ target_compile_options(mwcas_bench PRIVATE
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
   $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
 )
-target_compile_definitions(mwcas_bench PRIVATE
-  MWCAS_BENCH_TARGET_NUM=${MWCAS_BENCH_TARGET_NUM}
-  DESC_CAP=${MWCAS_BENCH_TARGET_NUM}
-)
-target_include_directories(mwcas_bench PRIVATE
-  "${MWCAS_BENCH_SOURCE_DIR}/src"
-  "${PMWCAS_SOURCE_DIR}/"
-  "${PMWCAS_SOURCE_DIR}/src"
-  "${PMWCAS_SOURCE_DIR}/include"
-)
 target_link_libraries(mwcas_bench PRIVATE
-  mwcas
-  pmwcas_static
-  mwcas_aopt
-  rt
+  benchmarker
   gflags
-  cpp_utility
-  cpp_bench
-  memory_manager
+  $<$<BOOL:${MWCAS_BENCH_USE_TBBMALLOC}>:tbbmalloc_proxy>
 )
 
-option(MWCAS_BENCH_OVERRIDE_JEMALLOC "Override entire memory allocation with jemalloc" OFF)
-if(${MWCAS_BENCH_OVERRIDE_JEMALLOC})
-  find_package(PkgConfig REQUIRED)
-  pkg_check_modules(JEMALLOC REQUIRED IMPORTED_TARGET jemalloc)
-
-  target_include_directories(mwcas_bench PRIVATE
-    ${JEMALLOC_INCLUDE_DIRS}
-  )
-  target_link_libraries(mwcas_bench PRIVATE
-    PkgConfig::JEMALLOC
-  )
-endif()
-
-#--------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 # Build unit tests
-#--------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
 
 option(MWCAS_BENCH_BUILD_TESTS "Build unit tests" OFF)
 if(${MWCAS_BENCH_BUILD_TESTS})

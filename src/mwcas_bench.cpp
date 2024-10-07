@@ -14,123 +14,170 @@
  * limitations under the License.
  */
 
-#include <gflags/gflags.h>
-
+// C++ standard libraries
+#include <cstddef>
+#include <iostream>
+#include <random>
 #include <string>
 
-#include "benchmark/benchmarker.hpp"
-#include "mwcas_target.hpp"
-#include "operation_engine.hpp"
+// external system libraries
+#include <gflags/gflags.h>
 
-/*##################################################################################################
- * CLI validators
- *################################################################################################*/
+// external libraries
+#include "dbgroup/benchmark/benchmarker.hpp"
+#include "dbgroup/benchmark/validator.hpp"
 
-template <class Number>
-static bool
-ValidatePositiveVal(const char *flagname, const Number value)
-{
-  if (value >= 0) {
-    return true;
-  }
-  std::cout << "A value must be positive for " << flagname << std::endl;
-  return false;
-}
+// local sources
+#include "dbgroup/mwcas_benchmark/mwcas_target.hpp"
+#include "dbgroup/mwcas_benchmark/operation.hpp"
+#include "dbgroup/mwcas_benchmark/operation_engine.hpp"
 
-template <class Number>
-static bool
-ValidateNonZero(const char *flagname, const Number value)
-{
-  if (value != 0) {
-    return true;
-  }
-  std::cout << "A value must be not zero for " << flagname << std::endl;
-  return false;
-}
+/*##############################################################################
+ * Options for selecting competitors
+ *############################################################################*/
 
-static bool
-ValidateRandomSeed([[maybe_unused]] const char *flagname, const std::string &seed)
-{
-  if (seed.empty()) {
-    return true;
-  }
+DEFINE_bool(  //
+    dlf_mwcas,
+    false,
+    "Use deadlock-free MwCAS as a competitor.");
 
-  for (size_t i = 0; i < seed.size(); ++i) {
-    if (!std::isdigit(seed[i])) {
-      std::cout << "A random seed must be unsigned integer type" << std::endl;
-      return false;
-    }
-  }
-  return true;
-}
+DEFINE_bool(  //
+    casn,
+    false,
+    "Use CASN algorithm as a competitor.");
 
-/*##################################################################################################
- * CLI arguments
- *################################################################################################*/
+DEFINE_bool(  //
+    aopt,
+    false,
+    "Use AOPT algorithm as a competitor.");
 
-DEFINE_uint64(num_field, 1000000, "The total number of target fields");
-DEFINE_validator(num_field, &ValidateNonZero);
-DEFINE_uint64(num_exec, 10000000, "The total number of MwCAS operations");
-DEFINE_validator(num_exec, &ValidateNonZero);
-DEFINE_uint64(num_thread, 8, "The number of worker threads for benchmarking");
-DEFINE_validator(num_thread, &ValidateNonZero);
-DEFINE_double(skew_parameter, 0, "A skew parameter (based on Zipf's law)");
-DEFINE_validator(skew_parameter, &ValidatePositiveVal);
-DEFINE_uint64(num_init_thread, 8, "The number of worker threads for initialization");
-DEFINE_validator(num_init_thread, &ValidateNonZero);
-DEFINE_string(seed, "", "A random seed to control reproducibility");
-DEFINE_validator(seed, &ValidateRandomSeed);
-DEFINE_bool(csv, false, "Output benchmark results as CSV format");
-DEFINE_bool(throughput, true, "true: measure throughput, false: measure latency");
-DEFINE_bool(mwcas, true, "Use our MwCAS library as a benchmark target");
-DEFINE_bool(pmwcas, true, "Use the PMwCAS library as a benchmark target");
-DEFINE_bool(aopt, true, "Use AOPT library as a benchmark target");
-DEFINE_bool(single, false, "Use Single CAS as a benchmark target");
+DEFINE_bool(  //
+    pmwcas,
+    false,
+#ifdef MWCAS_BENCH_USE_PMWCAS
+    "Use microsoft/pmwcas as a competitor."
+#else
+    "microsoft/pmwcas is disabled. Turn on 'MWCAS_BENCH_USE_PMWCAS'."
+#endif
+);
 
-/*##################################################################################################
+/*##############################################################################
+ * Options for controling workload
+ *############################################################################*/
+
+DEFINE_uint64(  //
+    num_exec,
+    1000000,
+    "The number of MwCAS operations executed by each worker.");
+
+DEFINE_uint64(  //
+    num_thread,
+    8,
+    "The number of worker threads for benchmarking.");
+
+DEFINE_double(  //
+    skew_parameter,
+    1,
+    "A skew parameter (based on Zipf's law).");
+
+DEFINE_uint64(  //
+    arr_cap,
+    1000000,
+    "The capacity of an array for MwCAS targets.");
+
+/*##############################################################################
+ * Utility options
+ *############################################################################*/
+
+DEFINE_string(  //
+    seed,
+    "",
+    "A random seed for reproducibility.");
+
+DEFINE_uint64(  //
+    timeout,
+    10,
+    "Timeout in seconds.");
+
+DEFINE_bool(  //
+    csv,
+    false,
+    "Output benchmark results as a CSV format.");
+
+DEFINE_bool(  //
+    throughput,
+    true,
+    "true: measure throughput, false: measure latency.");
+
+/*##############################################################################
+ * Option validators
+ *############################################################################*/
+
+DEFINE_validator(num_exec, &::dbgroup::benchmark::ValidatePositiveValue);
+DEFINE_validator(num_thread, &::dbgroup::benchmark::ValidatePositiveValue);
+DEFINE_validator(skew_parameter, &::dbgroup::benchmark::ValidateSkewParameter);
+DEFINE_validator(arr_cap, &::dbgroup::benchmark::ValidatePositiveValue);
+DEFINE_validator(seed, &::dbgroup::benchmark::ValidateStr2UInt);
+DEFINE_validator(timeout, &::dbgroup::benchmark::ValidatePositiveValue);
+
+/*##############################################################################
  * Utility functions
- *################################################################################################*/
+ *############################################################################*/
 
-template <class Implementation>
+template <class Impl>
 void
-RunBenchmark(const std::string &target_name)
+RunBenchmark(  //
+    const std::string &target_name,
+    const size_t target_num)
 {
-  using MwCASTarget_t = MwCASTarget<Implementation>;
-  using Bench_t = ::dbgroup::benchmark::Benchmarker<MwCASTarget_t, Operation, OperationEngine>;
+  using Ops = ::dbgroup::Operation;
+  using OpsEngine = ::dbgroup::OperationEngine;
+  using Target = ::dbgroup::MwCASTarget<Impl>;
+  using Bench = ::dbgroup::benchmark::Benchmarker<Target, Ops, OpsEngine>;
 
-  if constexpr (std::is_same_v<Implementation, AOPT>) {
-    AOPT::StartGC(100000, 4);
-  }
+  const auto seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
+  Target target{FLAGS_arr_cap};
+  OpsEngine ops_engine{target_num, FLAGS_arr_cap, FLAGS_skew_parameter, seed};
 
-  MwCASTarget_t target{FLAGS_num_field, FLAGS_num_init_thread, FLAGS_num_thread};
-  OperationEngine ops_engine{target.ReferTargetFields(), FLAGS_skew_parameter};
-  const auto random_seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
-
-  Bench_t bench{target,      ops_engine,       FLAGS_num_exec, FLAGS_num_thread,
-                random_seed, FLAGS_throughput, FLAGS_csv,      target_name};
+  Bench bench{target, target_name,      ops_engine, FLAGS_num_exec, FLAGS_num_thread,
+              seed,   FLAGS_throughput, FLAGS_csv,  FLAGS_timeout};
   bench.Run();
-
-  if constexpr (std::is_same_v<Implementation, AOPT>) {
-    AOPT::StopGC();
-  }
 }
 
-/*##################################################################################################
+/*##############################################################################
  * Main function
- *################################################################################################*/
+ *############################################################################*/
 
-int
-main(int argc, char *argv[])
+auto
+main(  //
+    int argc,
+    char *argv[])  //
+    -> int
 {
   // parse command line options
+  constexpr bool kRemoveParsedFlags = true;
   gflags::SetUsageMessage("measures throughput/latency of MwCAS implementations.");
-  gflags::ParseCommandLineFlags(&argc, &argv, false);
+  gflags::ParseCommandLineFlags(&argc, &argv, kRemoveParsedFlags);
+
+  // parse command line arguments
+  if (argc < 2) {
+    std::cerr << "Usage: ./pmwcas_bench --<competitor> <target_word_num>\n";
+    return 1;
+  }
+  const auto target_num = std::stoull(argv[1]);  // NOLINT
+  constexpr auto kMax = ::dbgroup::atomic::mwcas::kMwCASCapacity;
+  if (target_num > kMax) {
+    std::cerr << "[Error] The current benchmark can swap up to " << kMax << " words.\n";
+    return 1;
+  }
 
   // run benchmark for each implementaton
-  if (FLAGS_mwcas) RunBenchmark<MwCAS>("MwCAS without GC");
-  if (FLAGS_pmwcas) RunBenchmark<PMwCAS>("PMwCAS");
-  if (FLAGS_aopt) RunBenchmark<AOPT>("AOPT");
-  if (FLAGS_single) RunBenchmark<SingleCAS>("Single CAS");
+  if (FLAGS_dlf_mwcas) RunBenchmark<DLFMwCAS>("Deadlock-free MwCAS", target_num);
+  if (FLAGS_casn) RunBenchmark<CASN>("CASN", target_num);
+  if (FLAGS_aopt) RunBenchmark<AOPT>("AOPT", target_num);
+#ifdef MWCAS_BENCH_USE_PMWCAS
+  if (FLAGS_pmwcas) RunBenchmark<PMwCAS>("PMwCAS", target_num);
+#endif
 
   return 0;
 }

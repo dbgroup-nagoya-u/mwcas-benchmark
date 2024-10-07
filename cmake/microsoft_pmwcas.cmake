@@ -39,7 +39,7 @@ if(NOT TARGET microsoft::pmwcas)
     "${microsoft_pmwcas_SOURCE_DIR}/include"
   )
   target_compile_definitions(microsoft_pmwcas PUBLIC
-    DESC_CAP=${MWCAS_BENCH_TARGET_NUM}
+    DESC_CAP=${MWCAS_BENCH_MAX_TARGET_NUM}
   )
   target_link_libraries(microsoft_pmwcas PUBLIC
     Threads::Threads
