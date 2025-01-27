@@ -45,6 +45,9 @@ using CASN = ::dbgroup::atomic::mwcas::lock_free::CASNDescriptor;
 #include "dbgroup/atomic/mwcas/lock_free/aopt_descriptor.hpp"
 using AOPT = ::dbgroup::atomic::mwcas::lock_free::AOPTDescriptor;
 
+#include "dbgroup/atomic/mwcas/lock_free/mwcas_descriptor.hpp"
+using LFMwCAS = ::dbgroup::atomic::mwcas::lock_free::MwCASDescriptor;
+
 #ifdef MWCAS_BENCH_USE_PMWCAS
 #include "mwcas/mwcas.h"
 #include "pmwcas.h"

@@ -100,6 +100,25 @@ MwCASTarget<AOPT>::Execute(  //
   return 1;
 }
 
+template <>
+auto
+MwCASTarget<LFMwCAS>::Execute(  //
+    const Operation &ops)       //
+    -> size_t
+{
+  const auto &positions = ops.GetPositions();
+  while (true) {
+    auto *desc = LFMwCAS::GetDescriptor();
+    for (const auto pos : positions) {
+      auto *addr = &(target_fields_[pos].val);
+      const auto old_val = DLFMwCAS::Read<size_t>(addr, kRelaxed);
+      desc->AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
+    }
+    if (desc->MwCAS()) break;
+  }
+  return 1;
+}
+
 #ifdef MWCAS_BENCH_USE_PMWCAS
 template <>
 auto
@@ -134,6 +153,7 @@ MwCASTarget<PMwCAS>::Execute(  //
 template class MwCASTarget<DLFMwCAS>;
 template class MwCASTarget<CASN>;
 template class MwCASTarget<AOPT>;
+template class MwCASTarget<LFMwCAS>;
 #ifdef MWCAS_BENCH_USE_PMWCAS
 template class MwCASTarget<PMwCAS>;
 #endif
