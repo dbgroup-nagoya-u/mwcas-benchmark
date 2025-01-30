@@ -34,6 +34,12 @@ option(
 )
 
 option(
+  MWCAS_BENCH_USE_MIMALLOC
+  "A flag for overriding entire memory allocation by mimalloc."
+  OFF
+)
+
+option(
   MWCAS_BENCH_USE_TBBMALLOC
   "A flag for overriding entire memory allocation by Intel oneTBB malloc."
   OFF
@@ -59,11 +65,6 @@ endif()
 # use command line options
 find_package(gflags REQUIRED)
 
-# use an efficient memory allocator
-if (${MWCAS_BENCH_USE_TBBMALLOC})
-  find_package(TBB REQUIRED)
-endif()
-
 # use our utility
 FetchContent_Declare(
   cpp-utility
@@ -79,6 +80,27 @@ FetchContent_Declare(
     GIT_TAG "bc98d176fe46aab25d91bd058c9d85b9d84c64a4"
 )
 FetchContent_MakeAvailable(cpp-benchmark)
+
+#use mimalloc as an efficient memory allocator
+if (${MWCAS_BENCH_USE_MIMALLOC})
+  set(MI_BUILD_TESTS OFF CACHE STRING "" FORCE)
+  FetchContent_Declare(
+      mimalloc
+      GIT_REPOSITORY "https://github.com/microsoft/mimalloc.git"
+      GIT_TAG "e14cfd2578fd68205b8d38895abe120bb622580e"
+  )
+  FetchContent_MakeAvailable(mimalloc)
+
+  if (${MWCAS_BENCH_USE_TBBMALLOC})
+    message("[${PROJECT_NAME}] Ignore TBB malloc to use mimalloc.")
+    set(MWCAS_BENCH_USE_TBBMALLOC OFF CACHE STRING "" FORCE)
+  endif()
+endif()
+
+# use TBB malloc an efficient memory allocator
+if (${MWCAS_BENCH_USE_TBBMALLOC})
+  find_package(TBB REQUIRED)
+endif()
 
 #------------------------------------------------------------------------------#
 # Build Benchmark
@@ -124,6 +146,7 @@ target_link_libraries(mwcas_bench PRIVATE
   benchmarker
   gflags
   $<$<BOOL:${MWCAS_BENCH_USE_TBBMALLOC}>:tbbmalloc_proxy>
+  $<$<BOOL:${MWCAS_BENCH_USE_MIMALLOC}>:mimalloc-static>
 )
 
 #------------------------------------------------------------------------------#
