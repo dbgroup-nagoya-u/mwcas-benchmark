@@ -15,18 +15,19 @@
  */
 
 // the corresponding header
-#include "dbgroup/mwcas_benchmark/operation.hpp"
+#include "dbgroup/mwcas_benchmark/operation_engine.hpp"
 
 // C++ standard libraries
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 // external libraries
 #include "gtest/gtest.h"
 
 namespace dbgroup::benchmark::test
 {
-class OperationFixture : public ::testing::Test
+class OperationEngineFixture : public ::testing::Test
 {
  protected:
   /*############################################################################
@@ -34,6 +35,10 @@ class OperationFixture : public ::testing::Test
    *##########################################################################*/
 
   static constexpr size_t kTargetNum = 8;
+  static constexpr size_t kArrayCapacity = 1E6;
+  static constexpr double kSkew = 1.0;
+  static constexpr size_t kSeed = 0;
+  static constexpr size_t kLoopNum = 1E6;
 
   /*############################################################################
    * Setup/Teardown
@@ -54,43 +59,30 @@ class OperationFixture : public ::testing::Test
  * Test definitions
  *----------------------------------------------------------------------------*/
 
-TEST_F(OperationFixture, SetPositionIfUniqueWithUniquePositionsSucceed)
+TEST_F(OperationEngineFixture, OPIterGenerateUniqueAndRandomTargets)
 {
-  Operation ops{};
+  const OperationEngine ops_engine{kTargetNum, kArrayCapacity, kSkew, kSeed};
+  auto &&iter = ops_engine.GetOPIter(0, kSeed);
 
-  for (size_t i = 0; i < kTargetNum; ++i) {
-    EXPECT_TRUE(ops.SetPositionIfUnique(i));
-  }
+  std::vector<size_t> prev_positions(kTargetNum, 0);
+  for (size_t i = 0; i < kLoopNum; ++i, ++iter) {
+    const auto &positions = (*iter).second;
+    EXPECT_EQ(positions.size(), prev_positions.size());
 
-  const auto &positions = ops.GetPositions();
-  for (size_t i = 0; i < kTargetNum; ++i) {
-    EXPECT_EQ(positions.at(i), i);
-  }
-}
+    int64_t prev_pos = -1;
+    for (const auto &pos : positions) {
+      const auto next_pos = static_cast<int64_t>(pos);
+      EXPECT_GT(next_pos, prev_pos);
+      prev_pos = next_pos;
+    }
 
-TEST_F(OperationFixture, SetPositionIfUniqueWithDuplicatePositionsFail)
-{
-  Operation ops{};
+    bool has_diff = false;
+    for (size_t j = 0; j < kTargetNum; ++j) {
+      has_diff |= positions.at(j) != prev_positions.at(j);
+    }
+    EXPECT_TRUE(has_diff);
 
-  if constexpr (kTargetNum > 1) {
-    ops.SetPositionIfUnique(0);
-    EXPECT_FALSE(ops.SetPositionIfUnique(0));
-  }
-}
-
-TEST_F(OperationFixture, SortTargetsWithUniquePositionsSortInAscendingOrder)
-{
-  Operation ops{};
-
-  for (int64_t i = kTargetNum - 1; i >= 0; --i) {
-    const size_t pos = i;
-    ops.SetPositionIfUnique(pos);
-  }
-  ops.SortTargets();
-
-  const auto &positions = ops.GetPositions();
-  for (size_t i = 0; i < kTargetNum; ++i) {
-    EXPECT_EQ(positions.at(i), i);
+    prev_positions = positions;
   }
 }
 

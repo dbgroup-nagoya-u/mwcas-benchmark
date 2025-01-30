@@ -30,7 +30,7 @@
 #include "dbgroup/thread/common.hpp"
 
 // local sources
-#include "dbgroup/mwcas_benchmark/operation.hpp"
+#include "dbgroup/mwcas_benchmark/operation_engine.hpp"
 
 /*##############################################################################
  * Competitors
@@ -68,6 +68,12 @@ namespace dbgroup
 template <class Impl>
 class MwCASTarget
 {
+  /*##########################################################################*
+   * Type aliases
+   *##########################################################################*/
+
+  using OPType = OperationEngine::OPType;
+
  public:
   /*############################################################################
    * Public constructors and assignment operators
@@ -130,11 +136,13 @@ class MwCASTarget
   /**
    * @brief Perform a PMwCAS operation.
    *
-   * @param ops An operation to be executed.
+   * @param type A dummy input.
+   * @param positions MwCAS target positions.
    * @return The number of executed operations (i.e., 1).
    */
-  auto Execute(              //
-      const Operation &ops)  //
+  auto Execute(  //
+      OPType type,
+      const std::vector<size_t> &positions)  //
       -> size_t;
 
  private:

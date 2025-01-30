@@ -20,9 +20,7 @@
 // C++ standard libraries
 #include <atomic>
 #include <cstddef>
-
-// local sources
-#include "dbgroup/mwcas_benchmark/operation.hpp"
+#include <vector>
 
 namespace
 {
@@ -44,10 +42,10 @@ namespace dbgroup
 template <>
 auto
 MwCASTarget<DLFMwCAS>::Execute(  //
-    const Operation &ops)        //
+    [[maybe_unused]] const OPType type,
+    const std::vector<size_t> &positions)  //
     -> size_t
 {
-  const auto &positions = ops.GetPositions();
   while (true) {
     DLFMwCAS desc{};
     for (const auto pos : positions) {
@@ -63,10 +61,10 @@ MwCASTarget<DLFMwCAS>::Execute(  //
 template <>
 auto
 MwCASTarget<CASN>::Execute(  //
-    const Operation &ops)    //
+    [[maybe_unused]] const OPType type,
+    const std::vector<size_t> &positions)  //
     -> size_t
 {
-  const auto &positions = ops.GetPositions();
   while (true) {
     [[maybe_unused]] const auto &guard = CASN::CreateEpochGuard();
     auto *desc = CASN::GetDescriptor();
@@ -83,10 +81,10 @@ MwCASTarget<CASN>::Execute(  //
 template <>
 auto
 MwCASTarget<AOPT>::Execute(  //
-    const Operation &ops)    //
+    [[maybe_unused]] const OPType type,
+    const std::vector<size_t> &positions)  //
     -> size_t
 {
-  const auto &positions = ops.GetPositions();
   while (true) {
     [[maybe_unused]] const auto &guard = AOPT::CreateEpochGuard();
     auto *desc = AOPT::GetDescriptor();
@@ -103,10 +101,10 @@ MwCASTarget<AOPT>::Execute(  //
 template <>
 auto
 MwCASTarget<LFMwCAS>::Execute(  //
-    const Operation &ops)       //
+    [[maybe_unused]] const OPType type,
+    const std::vector<size_t> &positions)  //
     -> size_t
 {
-  const auto &positions = ops.GetPositions();
   while (true) {
     auto *desc = LFMwCAS::GetDescriptor();
     for (const auto pos : positions) {
@@ -123,12 +121,12 @@ MwCASTarget<LFMwCAS>::Execute(  //
 template <>
 auto
 MwCASTarget<PMwCAS>::Execute(  //
-    const Operation &ops)      //
+    [[maybe_unused]] const OPType type,
+    const std::vector<size_t> &positions)  //
     -> size_t
 {
   using PMwCASField = ::pmwcas::MwcTargetField<uint64_t>;
 
-  const auto &positions = ops.GetPositions();
   while (true) {
     auto *desc = pmwcas_desc_pool_->AllocateDescriptor();
     auto *epoch = pmwcas_desc_pool_->GetEpoch();

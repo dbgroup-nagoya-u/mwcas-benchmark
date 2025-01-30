@@ -29,7 +29,6 @@
 
 // local sources
 #include "dbgroup/mwcas_benchmark/mwcas_target.hpp"
-#include "dbgroup/mwcas_benchmark/operation.hpp"
 #include "dbgroup/mwcas_benchmark/operation_engine.hpp"
 
 /*##############################################################################
@@ -69,11 +68,6 @@ DEFINE_bool(  //
 /*##############################################################################
  * Options for controling workload
  *############################################################################*/
-
-DEFINE_uint64(  //
-    num_exec,
-    1000000,
-    "The number of MwCAS operations executed by each worker.");
 
 DEFINE_uint64(  //
     num_thread,
@@ -118,7 +112,6 @@ DEFINE_bool(  //
  * Option validators
  *############################################################################*/
 
-DEFINE_validator(num_exec, &::dbgroup::benchmark::ValidatePositiveValue);
 DEFINE_validator(num_thread, &::dbgroup::benchmark::ValidatePositiveValue);
 DEFINE_validator(skew_parameter, &::dbgroup::benchmark::ValidateSkewParameter);
 DEFINE_validator(arr_cap, &::dbgroup::benchmark::ValidatePositiveValue);
@@ -135,18 +128,24 @@ RunBenchmark(  //
     const std::string &target_name,
     const size_t target_num)
 {
-  using Ops = ::dbgroup::Operation;
-  using OpsEngine = ::dbgroup::OperationEngine;
+  using OperationEngine = ::dbgroup::OperationEngine;
   using Target = ::dbgroup::MwCASTarget<Impl>;
-  using Bench = ::dbgroup::benchmark::Benchmarker<Target, Ops, OpsEngine>;
+  using Benchmarker = ::dbgroup::benchmark::Benchmarker<Target, OperationEngine>;
+  using Builder = typename Benchmarker::Builder;
 
   const auto seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
   Target target{FLAGS_arr_cap};
-  OpsEngine ops_engine{target_num, FLAGS_arr_cap, FLAGS_skew_parameter, seed};
+  OperationEngine ops_engine{target_num, FLAGS_arr_cap, FLAGS_skew_parameter, seed};
 
-  Bench bench{target, target_name,      ops_engine, FLAGS_num_exec, FLAGS_num_thread,
-              seed,   FLAGS_throughput, FLAGS_csv,  FLAGS_timeout};
-  bench.Run();
+  Builder builder{target, target_name, ops_engine};
+  builder.SetThreadNum(FLAGS_num_thread);
+  builder.SetTimeOut(FLAGS_timeout);
+  builder.SetRandomSeed(seed);
+  if (FLAGS_csv) {
+    builder.OutputAsCSV(FLAGS_throughput);
+  }
+  auto &&bench = builder.Build();
+  bench->Run();
 }
 
 /*##############################################################################

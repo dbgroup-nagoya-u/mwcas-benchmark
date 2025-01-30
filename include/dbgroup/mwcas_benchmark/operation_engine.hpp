@@ -19,13 +19,12 @@
 
 // C++ standard libraries
 #include <cstddef>
+#include <random>
+#include <utility>
 #include <vector>
 
 // external libraries
 #include "dbgroup/random/zipf.hpp"
-
-// local sources
-#include "dbgroup/mwcas_benchmark/operation.hpp"
 
 namespace dbgroup
 {
@@ -35,9 +34,130 @@ class OperationEngine
    * Type aliases
    *##########################################################################*/
 
-  using ZipfDist_t = ::dbgroup::random::ApproxZipfDistribution<size_t>;
+  using Zipf = ::dbgroup::random::ApproxZipfDistribution<size_t>;
 
  public:
+  /*##########################################################################*
+   * Public types
+   *##########################################################################*/
+
+  /**
+   * @brief An enumeration for representing target operations.
+   *
+   * @note Our benchmark template requires this type.
+   */
+  enum OPType {
+    kMwCAS = 0,
+    kTotalNum,  /// @note This element is mandatory.
+  };
+
+  /**
+   * @brief A class for iterating an operation queue.
+   *
+   * @note Our benchmark template requires this type.
+   */
+  class OPIter
+  {
+   public:
+    /*########################################################################*
+     * Public constructors and assignment operators
+     *########################################################################*/
+
+    /**
+     * @param target_num The number of target words fow MwCAS.
+     * @param array_cap The capacity of an array.
+     * @param skew_param A skew parameter in Zipf's law.
+     * @param random_seed A seed value for reproducibility.
+     * @param pos_index The index for indicating actual positions in an array.
+     */
+    OPIter(  //
+        const size_t target_num,
+        const size_t arr_cap,
+        const double skew_parameter,
+        const size_t rand_seed,
+        const std::vector<size_t> &pos_index)
+        : zipf_{0, arr_cap - 1, skew_parameter},
+          rand_{rand_seed},
+          target_num_{target_num},
+          positions_(target_num, 0),
+          pos_index_{pos_index}
+    {
+      ++(*this);
+    }
+
+    OPIter(const OPIter &) = delete;
+    OPIter(OPIter &&) noexcept = delete;
+
+    auto operator=(const OPIter &obj) -> OPIter & = delete;
+    auto operator=(OPIter &&) noexcept -> OPIter & = delete;
+
+    /*########################################################################*
+     * Public destructor
+     *########################################################################*/
+
+    ~OPIter() = default;
+
+    /*########################################################################*
+     * Public APIs
+     *########################################################################*/
+
+    /**
+     * @retval true if this iterator has other operations.
+     * @retval false otherwise.
+     * @note Our benchmark template requires this operator.
+     */
+    [[nodiscard]] constexpr explicit
+    operator bool() const
+    {
+      return true;
+    }
+
+    /**
+     * @retval 1st: The current operation type.
+     * @retval 2nd: Operation arguments.
+     * @note Our benchmark template requires this operator.
+     */
+    [[nodiscard]] constexpr auto
+    operator*() const  //
+        -> std::pair<OPType, const std::vector<size_t> &>
+    {
+      return {type_, positions_};
+    }
+
+    /**
+     * @brief Advance this iterator.
+     *
+     * @return Oneself.
+     * @note Our benchmark template requires this operator.
+     */
+    auto operator++()  //
+        -> OPIter &;
+
+   private:
+    /*########################################################################*
+     * Internal member variables
+     *########################################################################*/
+
+    /// @brief A zipf distribution.
+    Zipf zipf_{};
+
+    /// @brief A random value generator.
+    std::mt19937_64 rand_{};
+
+    /// @brief The number of target words for MwCAS.
+    size_t target_num_{};
+
+    /// @brief The position of a target page.
+    std::vector<size_t> positions_{};
+
+    /// @brief The index for indicating actual positions in an array.
+    const std::vector<size_t> &pos_index_{};
+
+    /// @brief An operation type to be executed.
+    /// @note Our benchmark template requires this field.
+    OPType type_{};
+  };
+
   /*############################################################################
    * Public constructors and assignment operators
    *##########################################################################*/
@@ -73,24 +193,21 @@ class OperationEngine
    *##########################################################################*/
 
   /**
-   * @return The number of target operation types.
+   * @brief Get the Operation Iter object
+   *
+   * @param thread_id A unique thread ID.
+   * @param rand_seed A random seed.
+   * @return An iterator for generating operations.
+   * @note Our benchmark template requires this function.
    */
-  [[nodiscard]] constexpr auto
-  GetOpsTypeNum() const  //
-      -> size_t
+  [[nodiscard]] auto
+  GetOPIter(  //
+      [[maybe_unused]] const size_t thread_id,
+      const size_t rand_seed) const  //
+      -> OPIter
   {
-    return 1;
+    return OPIter{target_num_, arr_cap_, skew_parameter_, rand_seed, pos_index_};
   }
-
-  /**
-   * @param n The number of operations to be executed by each worker.
-   * @param random_seed A seed value for reproducibility.
-   * @return A sequence of operations for MwCAS.
-   */
-  [[nodiscard]] auto Generate(  //
-      size_t n,
-      size_t random_seed) const  //
-      -> std::vector<Operation>;
 
  private:
   /*############################################################################
@@ -100,11 +217,14 @@ class OperationEngine
   /// @brief The index for indicating actual positions in an array.
   std::vector<size_t> pos_index_{};
 
+  /// @brief The capacity of an array.
+  size_t arr_cap_{};
+
   /// @brief The number of target words for MwCAS.
   size_t target_num_{};
 
-  /// @brief A random value generator according to Zipf's law.
-  ZipfDist_t zipf_dist_{};
+  /// @brief A skew parameter in Zipf's law.
+  double skew_parameter_{};
 };
 
 }  // namespace dbgroup

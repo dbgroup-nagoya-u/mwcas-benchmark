@@ -68,7 +68,7 @@ endif()
 FetchContent_Declare(
   cpp-utility
   GIT_REPOSITORY "https://github.com/dbgroup-nagoya-u/cpp-utility.git"
-  GIT_TAG "14008188d31fd77c99efec12c368b0aa874c1c2b"
+  GIT_TAG "6487d3fe2ab4e70b5ab5cee7742cccf92bb5f072"
 )
 FetchContent_MakeAvailable(cpp-utility)
 
@@ -76,7 +76,7 @@ FetchContent_MakeAvailable(cpp-utility)
 FetchContent_Declare(
     cpp-benchmark
     GIT_REPOSITORY "https://github.com/dbgroup-nagoya-u/cpp-benchmark.git"
-    GIT_TAG "9c2e9c1393ee359cf2a304c1239fddcf9847636b"
+    GIT_TAG "bc98d176fe46aab25d91bd058c9d85b9d84c64a4"
 )
 FetchContent_MakeAvailable(cpp-benchmark)
 
@@ -86,7 +86,6 @@ FetchContent_MakeAvailable(cpp-benchmark)
 
 # build as library for testing
 add_library(benchmarker STATIC
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/operation.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/operation_engine.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/mwcas_target.cpp"
 )
