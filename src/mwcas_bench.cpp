@@ -112,7 +112,7 @@ DEFINE_bool(  //
  * Option validators
  *############################################################################*/
 
-DEFINE_validator(num_thread, &::dbgroup::benchmark::ValidatePositiveValue);
+DEFINE_validator(num_thread, &::dbgroup::benchmark::ValidateThreadNum);
 DEFINE_validator(skew_parameter, &::dbgroup::benchmark::ValidateSkewParameter);
 DEFINE_validator(arr_cap, &::dbgroup::benchmark::ValidatePositiveValue);
 DEFINE_validator(seed, &::dbgroup::benchmark::ValidateStr2UInt);

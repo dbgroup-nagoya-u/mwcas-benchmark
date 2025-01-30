@@ -77,7 +77,7 @@ FetchContent_MakeAvailable(cpp-utility)
 FetchContent_Declare(
     cpp-benchmark
     GIT_REPOSITORY "https://github.com/dbgroup-nagoya-u/cpp-benchmark.git"
-    GIT_TAG "bc98d176fe46aab25d91bd058c9d85b9d84c64a4"
+    GIT_TAG "37664b5c7afe49561fd0c49a8e621f4a6cbffc26"
 )
 FetchContent_MakeAvailable(cpp-benchmark)
 
