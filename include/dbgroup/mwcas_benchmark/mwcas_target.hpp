@@ -80,7 +80,8 @@ class MwCASTarget
    *##########################################################################*/
 
   explicit MwCASTarget(  //
-      const size_t array_cap)
+      const size_t array_cap,
+      [[maybe_unused]] const size_t thread_num)
       : target_fields_{array_cap, CacheLineBlock{0}}
   {
 #ifdef MWCAS_BENCH_USE_PMWCAS
@@ -96,7 +97,8 @@ class MwCASTarget
 #endif
 
     if constexpr (std::is_same_v<Impl, CASN> || std::is_same_v<Impl, AOPT>) {
-      Impl::StartGC();
+      const auto cleaner_num = 1UL + static_cast<size_t>(thread_num / 24);  // NOLINT
+      Impl::StartGC(::dbgroup::memory::kDefaultGCTime, cleaner_num);
     }
   }
 

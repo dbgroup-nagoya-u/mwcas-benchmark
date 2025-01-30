@@ -134,7 +134,7 @@ RunBenchmark(  //
   using Builder = typename Benchmarker::Builder;
 
   const auto seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
-  Target target{FLAGS_arr_cap};
+  Target target{FLAGS_arr_cap, FLAGS_num_thread};
   OperationEngine ops_engine{target_num, FLAGS_arr_cap, FLAGS_skew_parameter, seed};
 
   Builder builder{target, target_name, ops_engine};
