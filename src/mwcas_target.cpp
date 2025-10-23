@@ -106,6 +106,7 @@ MwCASTarget<LFMwCAS>::Execute(  //
     -> size_t
 {
   while (true) {
+    [[maybe_unused]] const auto &guard = LFMwCAS::CreateEpochGuard();
     auto *desc = LFMwCAS::GetDescriptor();
     for (const auto pos : positions) {
       auto *addr = &(target_fields_[pos].val);

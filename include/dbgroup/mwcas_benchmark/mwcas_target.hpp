@@ -96,7 +96,8 @@ class MwCASTarget
     }
 #endif
 
-    if constexpr (std::is_same_v<Impl, CASN> || std::is_same_v<Impl, AOPT>) {
+    if constexpr (std::is_same_v<Impl, CASN> || std::is_same_v<Impl, AOPT>
+                  || std::is_same_v<Impl, LFMwCAS>) {
       const auto cleaner_num = 1UL + static_cast<size_t>(thread_num / 24);  // NOLINT
       Impl::StartGC(::dbgroup::memory::kDefaultGCTime, cleaner_num);
     }
@@ -114,7 +115,8 @@ class MwCASTarget
 
   ~MwCASTarget()
   {
-    if constexpr (std::is_same_v<Impl, CASN> || std::is_same_v<Impl, AOPT>) {
+    if constexpr (std::is_same_v<Impl, CASN> || std::is_same_v<Impl, AOPT>
+                  || std::is_same_v<Impl, LFMwCAS>) {
       Impl::StopGC();
     }
   }

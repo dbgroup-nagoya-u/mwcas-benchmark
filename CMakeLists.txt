@@ -36,7 +36,7 @@ option(
 option(
   MWCAS_BENCH_USE_MIMALLOC
   "A flag for overriding entire memory allocation by mimalloc."
-  OFF
+  ON
 )
 
 option(
