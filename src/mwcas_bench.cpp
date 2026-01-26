@@ -179,7 +179,12 @@ main(  //
   if (FLAGS_dlf_mwcas) RunBenchmark<DLFMwCAS>("Deadlock-free MwCAS", target_num);
   if (FLAGS_casn) RunBenchmark<CASN>("CASN", target_num);
   if (FLAGS_aopt) RunBenchmark<AOPT>("AOPT", target_num);
-  if (FLAGS_lf_mwcas) RunBenchmark<LFMwCAS>("Lock-free MwCAS", target_num);
+  if (FLAGS_lf_mwcas) {
+    RunBenchmark<LFMwCAS>("Lock-free MwCAS", target_num);
+    std::cout << dbgroup::atomic::mwcas::lock_free::MwCASDescriptor::
+            GetVersionWrapCountSum()  // Total Version Wrap Count
+              << std::endl;
+  }
 #ifdef MWCAS_BENCH_USE_PMWCAS
   if (FLAGS_pmwcas) RunBenchmark<PMwCAS>("PMwCAS", target_num);
 #endif
