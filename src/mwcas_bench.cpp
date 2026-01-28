@@ -182,7 +182,7 @@ main(  //
   if (FLAGS_lf_mwcas) {
     RunBenchmark<LFMwCAS>("Lock-free MwCAS", target_num);
     std::cout << dbgroup::atomic::mwcas::lock_free::MwCASDescriptor::
-            GetVersionWrapCountSum()  // Total Version Wrap Count
+            CalcMaxVersionWrapCountSum()  // Total Version Wrap Count
               << std::endl;
   }
 #ifdef MWCAS_BENCH_USE_PMWCAS
