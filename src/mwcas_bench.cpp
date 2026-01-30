@@ -181,9 +181,20 @@ main(  //
   if (FLAGS_aopt) RunBenchmark<AOPT>("AOPT", target_num);
   if (FLAGS_lf_mwcas) {
     RunBenchmark<LFMwCAS>("Lock-free MwCAS", target_num);
-    std::cout << dbgroup::atomic::mwcas::lock_free::MwCASDescriptor::
-            CalcMaxVersionWrapCountSum()  // Total Version Wrap Count
+    std::cout << "MaxWrapCounts: "
+              << dbgroup::atomic::mwcas::lock_free::MwCASDescriptor::CalcMaxVersionWrapCountSum()
               << std::endl;
+    auto sw = dbgroup::atomic::mwcas::lock_free::MwCASDescriptor::GetStopWatch();
+    std::cout << "StopWatch 0.00p: " << sw.Quantile(0.00) << std::endl;
+    std::cout << "StopWatch 0.25p: " << sw.Quantile(0.25) << std::endl;
+    std::cout << "StopWatch 0.50p: " << sw.Quantile(0.50) << std::endl;
+    std::cout << "StopWatch 0.75p: " << sw.Quantile(0.75) << std::endl;
+    std::cout << "StopWatch 0.90p: " << sw.Quantile(0.90) << std::endl;
+    std::cout << "StopWatch 0.95p: " << sw.Quantile(0.95) << std::endl;
+    std::cout << "StopWatch 0.99p: " << sw.Quantile(0.99) << std::endl;
+    std::cout << "StopWatch 0.999p: " << sw.Quantile(0.999) << std::endl;
+    std::cout << "StopWatch 0.9999p: " << sw.Quantile(0.9999) << std::endl;
+    std::cout << "StopWatch 1.00p: " << sw.Quantile(1.00) << std::endl;
   }
 #ifdef MWCAS_BENCH_USE_PMWCAS
   if (FLAGS_pmwcas) RunBenchmark<PMwCAS>("PMwCAS", target_num);
