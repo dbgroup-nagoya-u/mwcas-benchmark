@@ -109,8 +109,8 @@ MwCASTarget<LFMwCAS>::Execute(  //
     auto *desc = LFMwCAS::GetDescriptor();
     for (const auto pos : positions) {
       auto *addr = &(target_fields_[pos].val);
-      const auto old_val = LFMwCAS::Read<size_t>(addr, kRelaxed);
-      desc->AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
+      const auto [old_val, word] = LFMwCAS::Read<size_t>(addr, kRelaxed);
+      desc->AddMwCASTarget(addr, word, old_val + 1, kRelaxed);
     }
     if (desc->MwCAS()) break;
   }
