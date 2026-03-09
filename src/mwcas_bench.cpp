@@ -28,6 +28,7 @@
 #include "dbgroup/benchmark/validator.hpp"
 
 // local sources
+#include "dbgroup/atomic/mwcas/lock_free/mwcas_descriptor.hpp"
 #include "dbgroup/mwcas_benchmark/mwcas_target.hpp"
 #include "dbgroup/mwcas_benchmark/operation_engine.hpp"
 
@@ -179,7 +180,11 @@ main(  //
   if (FLAGS_dlf_mwcas) RunBenchmark<DLFMwCAS>("Deadlock-free MwCAS", target_num);
   if (FLAGS_casn) RunBenchmark<CASN>("CASN", target_num);
   if (FLAGS_aopt) RunBenchmark<AOPT>("AOPT", target_num);
-  if (FLAGS_lf_mwcas) RunBenchmark<LFMwCAS>("Lock-free MwCAS", target_num);
+  if (FLAGS_lf_mwcas) {
+    RunBenchmark<LFMwCAS>("Lock-free MwCAS", target_num);
+    auto wrap_count_sum = LFMwCAS::CalcMaxVersionWrapCountSum();
+    std::cout << wrap_count_sum << "\n";
+  }
 #ifdef MWCAS_BENCH_USE_PMWCAS
   if (FLAGS_pmwcas) RunBenchmark<PMwCAS>("PMwCAS", target_num);
 #endif
