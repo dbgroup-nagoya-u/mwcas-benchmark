@@ -4,9 +4,9 @@
 set -e
 
 # 引数1: ビルドモード (デフォルトは Release)
-BUILD_TYPE="Release"
+BUILD_TYPE=${1:-Release}
 # 引数2: MwCASのビット数 (デフォルトは 60 に設定)
-BIT_NUM=48
+BIT_NUM=${2:-60}
 
 BUILD_DIR="build/vscode"
 
