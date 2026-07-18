@@ -26,6 +26,8 @@
 // external C++ libraries
 #include <dbgroup/benchmark/benchmarker.hpp>
 #include <dbgroup/benchmark/validator.hpp>
+#include <dbgroup/constants.hpp>
+#include <dbgroup/thread/id_manager.hpp>
 
 // local sources
 #include "dbgroup/mwcas_benchmark/mwcas_target.hpp"
@@ -153,6 +155,9 @@ main(  //
     char* argv[])  //
     -> int
 {
+  // set the thread capacity
+  dbgroup::thread::IDManager::SetMaxThreadNum(dbgroup::kMaxThreadCapacity);
+
   // parse command line options
   constexpr bool kRemoveParsedFlags = true;
   gflags::SetUsageMessage("measures throughput/latency of MwCAS implementations.");
