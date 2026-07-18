@@ -92,6 +92,7 @@
     "DCMAKE",
     "devel",
     "DMWCAS",
+    "endfunction",
     "gflags",
     "GLOG",
     "gtest",

@@ -112,11 +112,10 @@ add_library(benchmarker STATIC
   "${CMAKE_CURRENT_SOURCE_DIR}/src/mwcas_target.cpp"
 )
 target_compile_options(benchmarker PRIVATE
+  $<$<STREQUAL:"${CMAKE_BUILD_TYPE}","Release">:-march=native>
+  $<$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">:-g3>
   -Wall
   -Wextra
-  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Release">:"-O2 -march=native">
-  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
-  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
 )
 target_compile_definitions(benchmarker PUBLIC
   $<$<BOOL:${MWCAS_BENCH_USE_PMWCAS}>:MWCAS_BENCH_USE_PMWCAS>
@@ -136,11 +135,10 @@ add_executable(mwcas_bench
   "${CMAKE_CURRENT_SOURCE_DIR}/src/mwcas_bench.cpp"
 )
 target_compile_options(mwcas_bench PRIVATE
+  $<$<STREQUAL:"${CMAKE_BUILD_TYPE}","Release">:-march=native>
+  $<$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">:-g3>
   -Wall
   -Wextra
-  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Release">:"-O2 -march=native">
-  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
-  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
 )
 target_link_libraries(mwcas_bench PRIVATE
   benchmarker

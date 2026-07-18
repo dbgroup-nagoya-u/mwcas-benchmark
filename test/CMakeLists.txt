@@ -5,8 +5,8 @@
 include(FetchContent)
 FetchContent_Declare(
   googletest
-  GIT_REPOSITORY "https://github.com/google/googletest.git"
-  GIT_TAG "58d77fa8070e8cec2dc1ed015d66b454c8d78850" # v1.12.1
+  GIT_REPOSITORY "https://github.com/google/googletest"
+  GIT_TAG "52eb8108c5bdec04579160ae17225d66034bd723" # v1.17.0
 )
 FetchContent_MakeAvailable(googletest)
 
@@ -20,11 +20,10 @@ function(ADD_MWCAS_BENCH_TEST MWCAS_BENCH_TEST_TARGET)
     "${CMAKE_CURRENT_SOURCE_DIR}/${MWCAS_BENCH_TEST_TARGET}.cpp"
   )
   target_compile_options(${MWCAS_BENCH_TEST_TARGET} PRIVATE
+    $<$<STREQUAL:"${CMAKE_BUILD_TYPE}","Release">:-march=native>
+    $<$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">:-g3>
     -Wall
     -Wextra
-    $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Release">:"-O2 -march=native">
-    $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
-    $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
   )
   target_link_libraries(${MWCAS_BENCH_TEST_TARGET} PRIVATE
     benchmarker
