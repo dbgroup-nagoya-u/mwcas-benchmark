@@ -105,6 +105,7 @@
     "mimalloc",
     "mutex",
     "mwcas",
+    "NUMA",
     "numactl",
     "NUMS",
     "PMEM",
@@ -114,6 +115,7 @@
     "stoul",
     "STREQUAL",
     "tbbmalloc",
+    "urandom",
     "Wextra",
     "zipf"
   ],

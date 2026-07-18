@@ -9,7 +9,6 @@ set -u
 BENCH_BIN=""
 CONFIG_ENV=""
 NUMA_NODES=""
-MEASURE_THROUGHPUT="t"
 readonly WORKSPACE_DIR=$(cd $(dirname ${BASH_SOURCE:-${0}})/.. && pwd)
 readonly RANDOM_ID=$(cat /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 10)
 readonly TMP_PATH="/tmp/mwcas_benchmark-$(id -un)-${RANDOM_ID}"
@@ -25,10 +24,8 @@ Arguments:
   <bench_bin>: A path to a binary file for benchmarking.
   <config>: A path to a configuration file for benchmarking.
 Options:
-  -h: Show this messsage and exit.
+  -h: Show this message and exit.
   -n: Only execute benchmark on the CPUs of nodes. See "man numactl" for details.
-  -t: Use throughput as a criteria (default: true).
-  -l: Use latency as a criteria (default: false).
 EOS
   exit 1
 }
@@ -41,10 +38,6 @@ while getopts n:lhtT: OPT
 do
   case ${OPT} in
     n) NUMA_NODES=${OPTARG}
-      ;;
-    t) MEASURE_THROUGHPUT="t"
-      ;;
-    l) MEASURE_THROUGHPUT="f"
       ;;
     h) usage
       ;;
@@ -93,8 +86,6 @@ for IMPL in ${IMPL_CANDIDATES}; do
           ${BENCH_BIN} \
           --${IMPL} \
           --csv \
-          --throughput=${MEASURE_THROUGHPUT} \
-          --num_exec ${OPERATION_COUNT} \
           --num_thread ${THREAD_NUM} \
           --skew_parameter ${SKEW_PARAMETER} \
           --arr-cap ${ARRAY_CAPACITY} \
