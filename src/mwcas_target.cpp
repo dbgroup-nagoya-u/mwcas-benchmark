@@ -22,16 +22,8 @@
 #include <cstddef>
 #include <vector>
 
-namespace
-{
-/*##############################################################################
- * Local constants
- *############################################################################*/
-
-/// @brief An alias of the relaxed memory order.
-constexpr auto kRelaxed = std::memory_order_relaxed;
-
-}  // namespace
+// external C++ libraries
+#include "dbgroup/constants.hpp"
 
 namespace dbgroup
 {
@@ -43,7 +35,7 @@ template <>
 auto
 MwCASTarget<DLFMwCAS>::Execute(  //
     [[maybe_unused]] const OPType type,
-    const std::vector<size_t> &positions)  //
+    const Operation &positions)  //
     -> size_t
 {
   while (true) {
@@ -62,7 +54,7 @@ template <>
 auto
 MwCASTarget<CASN>::Execute(  //
     [[maybe_unused]] const OPType type,
-    const std::vector<size_t> &positions)  //
+    const Operation &positions)  //
     -> size_t
 {
   while (true) {
@@ -82,7 +74,7 @@ template <>
 auto
 MwCASTarget<AOPT>::Execute(  //
     [[maybe_unused]] const OPType type,
-    const std::vector<size_t> &positions)  //
+    const Operation &positions)  //
     -> size_t
 {
   while (true) {
@@ -102,7 +94,7 @@ template <>
 auto
 MwCASTarget<LFMwCAS>::Execute(  //
     [[maybe_unused]] const OPType type,
-    const std::vector<size_t> &positions)  //
+    const Operation &positions)  //
     -> size_t
 {
   while (true) {
@@ -122,7 +114,7 @@ template <>
 auto
 MwCASTarget<PMwCAS>::Execute(  //
     [[maybe_unused]] const OPType type,
-    const std::vector<size_t> &positions)  //
+    const Operation &positions)  //
     -> size_t
 {
   using PMwCASField = ::pmwcas::MwcTargetField<uint64_t>;

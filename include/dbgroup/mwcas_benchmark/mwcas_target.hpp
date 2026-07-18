@@ -26,9 +26,6 @@
 // external system libraries
 #include <gflags/gflags.h>
 
-// external libraries
-#include "dbgroup/thread/common.hpp"
-
 // local sources
 #include "dbgroup/mwcas_benchmark/operation_engine.hpp"
 
@@ -49,6 +46,7 @@ using AOPT = ::dbgroup::atomic::mwcas::lock_free::AOPTDescriptor;
 using LFMwCAS = ::dbgroup::atomic::mwcas::lock_free::MwCASDescriptor;
 
 #ifdef MWCAS_BENCH_USE_PMWCAS
+#include "dbgroup/constants.hpp"
 #include "mwcas/mwcas.h"
 #include "pmwcas.h"
 using PMwCAS = ::pmwcas::DescriptorPool;
@@ -68,13 +66,14 @@ namespace dbgroup
 template <class Impl>
 class MwCASTarget
 {
+ public:
   /*##########################################################################*
-   * Type aliases
+   * Public types
    *##########################################################################*/
 
   using OPType = OperationEngine::OPType;
+  using Operation = OperationEngine::Operation;
 
- public:
   /*############################################################################
    * Public constructors and assignment operators
    *##########################################################################*/
@@ -132,6 +131,18 @@ class MwCASTarget
   }
 
   constexpr void
+  PreProcess() const
+  {
+    // do nothing
+  }
+
+  constexpr void
+  PostProcess() const
+  {
+    // do nothing
+  }
+
+  constexpr void
   TearDownForWorker() const
   {
     // do nothing
@@ -146,7 +157,7 @@ class MwCASTarget
    */
   auto Execute(  //
       OPType type,
-      const std::vector<size_t> &positions)  //
+      const Operation &positions)  //
       -> size_t;
 
  private:

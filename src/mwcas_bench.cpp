@@ -103,11 +103,6 @@ DEFINE_bool(  //
     false,
     "Output benchmark results as a CSV format.");
 
-DEFINE_bool(  //
-    throughput,
-    true,
-    "true: measure throughput, false: measure latency.");
-
 /*##############################################################################
  * Option validators
  *############################################################################*/
@@ -142,7 +137,7 @@ RunBenchmark(  //
   builder.SetTimeOut(FLAGS_timeout);
   builder.SetRandomSeed(seed);
   if (FLAGS_csv) {
-    builder.OutputAsCSV(FLAGS_throughput);
+    builder.OutputAsCSV();
   }
   auto &&bench = builder.Build();
   bench->Run();

@@ -20,6 +20,8 @@
 // C++ standard libraries
 #include <cstddef>
 #include <random>
+#include <stdexcept>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -51,6 +53,9 @@ class OperationEngine
     kTotalNum,  /// @note This element is mandatory.
   };
 
+  /// @note Our benchmark template requires this field.
+  using Operation = std::vector<size_t>;
+
   /**
    * @brief A class for iterating an operation queue.
    *
@@ -75,7 +80,7 @@ class OperationEngine
         const size_t arr_cap,
         const double skew_parameter,
         const size_t rand_seed,
-        const std::vector<size_t> &pos_index)
+        Operation pos_index)
         : zipf_{0, arr_cap - 1, skew_parameter},
           rand_{rand_seed},
           target_num_{target_num},
@@ -85,11 +90,12 @@ class OperationEngine
       ++(*this);
     }
 
-    OPIter(const OPIter &) = delete;
-    OPIter(OPIter &&) noexcept = delete;
+    OPIter(OPIter &&) noexcept = default;
+    auto operator=(OPIter &&) noexcept -> OPIter & = default;
 
+    // forbit copying
+    OPIter(const OPIter &) = delete;
     auto operator=(const OPIter &obj) -> OPIter & = delete;
-    auto operator=(OPIter &&) noexcept -> OPIter & = delete;
 
     /*########################################################################*
      * Public destructor
@@ -119,7 +125,7 @@ class OperationEngine
      */
     [[nodiscard]] constexpr auto
     operator*() const  //
-        -> std::pair<OPType, const std::vector<size_t> &>
+        -> std::pair<OPType, Operation>
     {
       return {type_, positions_};
     }
@@ -151,7 +157,7 @@ class OperationEngine
     std::vector<size_t> positions_{};
 
     /// @brief The index for indicating actual positions in an array.
-    const std::vector<size_t> &pos_index_{};
+    Operation pos_index_{};
 
     /// @brief An operation type to be executed.
     /// @note Our benchmark template requires this field.
@@ -191,6 +197,20 @@ class OperationEngine
   /*############################################################################
    * Public APIs
    *##########################################################################*/
+
+  /// @note Our benchmark template requires this field.
+  static constexpr auto
+  EnumToString(        //
+      const OPType e)  //
+      -> std::string_view
+  {
+    switch (e) {
+      case kMwCAS:
+        return "MwCAS";
+      default:
+        throw std::runtime_error{"Found the unkown operation type."};
+    }
+  }
 
   /**
    * @brief Get the Operation Iter object
