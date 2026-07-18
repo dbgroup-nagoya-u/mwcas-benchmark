@@ -170,7 +170,7 @@ main(  //
     return 1;
   }
 
-  // run benchmark for each implementaton
+  // run benchmark for each implementation
   if (FLAGS_dlf_mwcas) RunBenchmark<DLFMwCAS>("Deadlock-free MwCAS", target_num);
   if (FLAGS_casn) RunBenchmark<CASN>("CASN", target_num);
   if (FLAGS_aopt) RunBenchmark<AOPT>("AOPT", target_num);

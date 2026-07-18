@@ -6,29 +6,34 @@ buildType:
       short: Debug
       long: Include debugging information without optimizations
       buildType: Debug
-      settings:
-        MWCAS_BENCH_MAX_TARGET_NUM: 8
-        MWCAS_BENCH_USE_PMWCAS: OFF
-        MWCAS_BENCH_USE_MIMALLOC: OFF
-        MWCAS_BENCH_USE_TBBMALLOC: OFF
-        MWCAS_BENCH_BUILD_TESTS: ON
     relWithDebInfo:
       short: RelWithDebInfo
       long: Perform optimizations and include debugging informatin
       buildType: RelWithDebInfo
-      settings:
-        MWCAS_BENCH_MAX_TARGET_NUM: 8
-        MWCAS_BENCH_USE_PMWCAS: OFF
-        MWCAS_BENCH_USE_MIMALLOC: OFF
-        MWCAS_BENCH_USE_TBBMALLOC: OFF
-        MWCAS_BENCH_BUILD_TESTS: ON
     release:
       short: Release
       long: Perform optimizations and omit debugging informatin
       buildType: Release
+
+parameter:
+  default: default
+  description: Build parameters
+  choices:
+    default:
+      short: Default
+      long: Build competitors
       settings:
         MWCAS_BENCH_MAX_TARGET_NUM: 8
         MWCAS_BENCH_USE_PMWCAS: OFF
         MWCAS_BENCH_USE_MIMALLOC: OFF
         MWCAS_BENCH_USE_TBBMALLOC: OFF
+
+unitTest:
+  default: w_test
+  description: Unit tests
+  choices:
+    w_test:
+      short: w/Test
+      long: Build unit tests
+      settings:
         MWCAS_BENCH_BUILD_TESTS: ON

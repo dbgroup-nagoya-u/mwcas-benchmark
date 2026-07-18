@@ -66,7 +66,7 @@ using PMwCAS = ::pmwcas::DescriptorPool;
 namespace dbgroup
 {
 /**
- * @brief A class to deal with MwCAS target data and algorthms.
+ * @brief A class to deal with MwCAS target data and algorithms.
  *
  * @tparam Impl A certain implementation of MwCAS algorithms.
  */
