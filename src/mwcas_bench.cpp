@@ -23,9 +23,9 @@
 // external system libraries
 #include <gflags/gflags.h>
 
-// external libraries
-#include "dbgroup/benchmark/benchmarker.hpp"
-#include "dbgroup/benchmark/validator.hpp"
+// external C++ libraries
+#include <dbgroup/benchmark/benchmarker.hpp>
+#include <dbgroup/benchmark/validator.hpp>
 
 // local sources
 #include "dbgroup/mwcas_benchmark/mwcas_target.hpp"

@@ -19,12 +19,16 @@
 
 // C++ standard libraries
 #include <cstddef>
-#include <memory>
+#include <cstdint>
 #include <type_traits>
 #include <vector>
 
 // external system libraries
 #include <gflags/gflags.h>
+
+// external C++ libraries
+#include <dbgroup/constants.hpp>
+#include <dbgroup/memory/utility.hpp>
 
 // local sources
 #include "dbgroup/mwcas_benchmark/operation_engine.hpp"
@@ -33,22 +37,25 @@
  * Competitors
  *############################################################################*/
 
-#include "dbgroup/atomic/mwcas/deadlock_free/mwcas_descriptor.hpp"
+#include <dbgroup/atomic/mwcas/deadlock_free/mwcas_descriptor.hpp>
 using DLFMwCAS = ::dbgroup::atomic::mwcas::deadlock_free::MwCASDescriptor;
 
-#include "dbgroup/atomic/mwcas/lock_free/casn_descriptor.hpp"
+#include <dbgroup/atomic/mwcas/lock_free/casn_descriptor.hpp>
 using CASN = ::dbgroup::atomic::mwcas::lock_free::CASNDescriptor;
 
-#include "dbgroup/atomic/mwcas/lock_free/aopt_descriptor.hpp"
+#include <dbgroup/atomic/mwcas/lock_free/aopt_descriptor.hpp>
 using AOPT = ::dbgroup::atomic::mwcas::lock_free::AOPTDescriptor;
 
-#include "dbgroup/atomic/mwcas/lock_free/mwcas_descriptor.hpp"
+#include <dbgroup/atomic/mwcas/lock_free/mwcas_descriptor.hpp>
 using LFMwCAS = ::dbgroup::atomic::mwcas::lock_free::MwCASDescriptor;
 
 #ifdef MWCAS_BENCH_USE_PMWCAS
-#include "dbgroup/constants.hpp"
-#include "mwcas/mwcas.h"
-#include "pmwcas.h"
+// C++ standard libraries
+#include <memory>
+
+// competitor's headers
+#include <mwcas/mwcas.h>
+#include <pmwcas.h>
 using PMwCAS = ::pmwcas::DescriptorPool;
 #endif
 
@@ -86,7 +93,7 @@ class MwCASTarget
 #ifdef MWCAS_BENCH_USE_PMWCAS
     // prepare descriptor pool for PMwCAS if needed
     if constexpr (std::is_same_v<Impl, PMwCAS>) {
-      constexpr uint32_t kPartition = ::dbgroup::thread::kMaxThreadNum;
+      constexpr uint32_t kPartition = thread_num;
       constexpr uint32_t kPoolCapacity = kPartition * 1024;
       ::pmwcas::InitLibrary(  //
           pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
@@ -95,7 +102,8 @@ class MwCASTarget
     }
 #endif
 
-    if constexpr (std::is_same_v<Impl, CASN> || std::is_same_v<Impl, AOPT>
+    if constexpr (std::is_same_v<Impl, CASN>     //
+                  || std::is_same_v<Impl, AOPT>  //
                   || std::is_same_v<Impl, LFMwCAS>) {
       const auto cleaner_num = 1UL + static_cast<size_t>(thread_num / 24);  // NOLINT
       Impl::StartGC(::dbgroup::memory::kDefaultGCTime, cleaner_num);
@@ -114,7 +122,8 @@ class MwCASTarget
 
   ~MwCASTarget()
   {
-    if constexpr (std::is_same_v<Impl, CASN> || std::is_same_v<Impl, AOPT>
+    if constexpr (std::is_same_v<Impl, CASN>     //
+                  || std::is_same_v<Impl, AOPT>  //
                   || std::is_same_v<Impl, LFMwCAS>) {
       Impl::StopGC();
     }
@@ -169,7 +178,7 @@ class MwCASTarget
    * @brief A class for aligning memory block into cache lines.
    *
    */
-  struct alignas(64) CacheLineBlock {  // NOLINT
+  struct alignas(kCacheLineSize) CacheLineBlock {
     uint64_t val;
   };
 

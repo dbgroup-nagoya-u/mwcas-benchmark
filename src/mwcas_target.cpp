@@ -18,12 +18,11 @@
 #include "dbgroup/mwcas_benchmark/mwcas_target.hpp"
 
 // C++ standard libraries
-#include <atomic>
 #include <cstddef>
 #include <vector>
 
 // external C++ libraries
-#include "dbgroup/constants.hpp"
+#include <dbgroup/constants.hpp>
 
 namespace dbgroup
 {
