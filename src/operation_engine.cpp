@@ -30,7 +30,9 @@ OperationEngine::OperationEngine(  //
     const size_t array_cap,
     const double skew_param,
     const size_t random_seed)
-    : arr_cap_{array_cap}, target_num_{target_num}, skew_parameter_{skew_param}
+    : arr_cap_{array_cap}
+    , target_num_{target_num}
+    , skew_parameter_{skew_param}
 {
   pos_index_.reserve(array_cap);
   for (size_t i = 0; i < array_cap; ++i) {
@@ -42,10 +44,10 @@ OperationEngine::OperationEngine(  //
 
 auto
 OperationEngine::OPIter::operator++()  //
-    -> OPIter &
+    -> OPIter&
 {
   // generate unique targets
-  auto &&cur_end = positions_.begin();
+  auto&& cur_end = positions_.begin();
   for (size_t i = 0; i < target_num_; ++i, ++cur_end) {
     auto pos = zipf_(rand_);
     while (std::find(positions_.begin(), cur_end, pos) != cur_end) {

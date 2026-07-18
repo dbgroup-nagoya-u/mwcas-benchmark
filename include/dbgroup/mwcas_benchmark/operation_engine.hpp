@@ -81,21 +81,21 @@ class OperationEngine
         const double skew_parameter,
         const size_t rand_seed,
         Operation pos_index)
-        : zipf_{0, arr_cap - 1, skew_parameter},
-          rand_{rand_seed},
-          target_num_{target_num},
-          positions_(target_num, 0),
-          pos_index_{std::move(pos_index)}
+        : zipf_{0, arr_cap - 1, skew_parameter}
+        , rand_{rand_seed}
+        , target_num_{target_num}
+        , positions_(target_num, 0)
+        , pos_index_{std::move(pos_index)}
     {
       ++(*this);
     }
 
-    OPIter(OPIter &&) noexcept = default;
-    auto operator=(OPIter &&) noexcept -> OPIter & = default;
+    OPIter(OPIter&&) noexcept = default;
+    auto operator=(OPIter&&) noexcept -> OPIter& = default;
 
     // forbit copying
-    OPIter(const OPIter &) = delete;
-    auto operator=(const OPIter &obj) -> OPIter & = delete;
+    OPIter(const OPIter&) = delete;
+    auto operator=(const OPIter& obj) -> OPIter& = delete;
 
     /*########################################################################*
      * Public destructor
@@ -139,7 +139,7 @@ class OperationEngine
      * @note Our benchmark template requires this operator.
      */
     auto operator++()  //
-        -> OPIter &;
+        -> OPIter&;
 
    private:
     /*########################################################################*
@@ -184,11 +184,11 @@ class OperationEngine
       double skew_param,
       size_t random_seed);
 
-  OperationEngine(const OperationEngine &) = default;
-  OperationEngine(OperationEngine &&) = default;
+  OperationEngine(const OperationEngine&) = default;
+  OperationEngine(OperationEngine&&) = default;
 
-  OperationEngine &operator=(const OperationEngine &obj) = default;
-  OperationEngine &operator=(OperationEngine &&) = default;
+  OperationEngine& operator=(const OperationEngine& obj) = default;
+  OperationEngine& operator=(OperationEngine&&) = default;
 
   /*##########################################################################*
    * Public destructors

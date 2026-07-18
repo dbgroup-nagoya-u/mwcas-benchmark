@@ -110,11 +110,11 @@ class MwCASTarget
     }
   }
 
-  MwCASTarget(const MwCASTarget &) = delete;
-  MwCASTarget(MwCASTarget &&) = delete;
+  MwCASTarget(const MwCASTarget&) = delete;
+  MwCASTarget(MwCASTarget&&) = delete;
 
-  MwCASTarget &operator=(const MwCASTarget &obj) = delete;
-  MwCASTarget &operator=(MwCASTarget &&) = delete;
+  MwCASTarget& operator=(const MwCASTarget& obj) = delete;
+  MwCASTarget& operator=(MwCASTarget&&) = delete;
 
   /*##########################################################################*
    * Public destructors
@@ -166,7 +166,7 @@ class MwCASTarget
    */
   auto Execute(  //
       OPType type,
-      const Operation &positions)  //
+      const Operation& positions)  //
       -> size_t;
 
  private:

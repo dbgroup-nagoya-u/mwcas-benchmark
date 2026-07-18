@@ -34,13 +34,13 @@ template <>
 auto
 MwCASTarget<DLFMwCAS>::Execute(  //
     [[maybe_unused]] const OPType type,
-    const Operation &positions)  //
+    const Operation& positions)  //
     -> size_t
 {
   while (true) {
     DLFMwCAS desc{};
     for (const auto pos : positions) {
-      auto *addr = &(target_fields_[pos].val);
+      auto* const addr = &(target_fields_[pos].val);
       const auto old_val = DLFMwCAS::Read<size_t>(addr, kRelaxed);
       desc.AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
     }
@@ -53,14 +53,14 @@ template <>
 auto
 MwCASTarget<CASN>::Execute(  //
     [[maybe_unused]] const OPType type,
-    const Operation &positions)  //
+    const Operation& positions)  //
     -> size_t
 {
   while (true) {
-    [[maybe_unused]] const auto &guard = CASN::CreateEpochGuard();
-    auto *desc = CASN::GetDescriptor();
+    [[maybe_unused]] const auto& guard = CASN::CreateEpochGuard();
+    auto* const desc = CASN::GetDescriptor();
     for (const auto pos : positions) {
-      auto *addr = &(target_fields_[pos].val);
+      auto* const addr = &(target_fields_[pos].val);
       const auto old_val = CASN::Read<size_t>(addr, kRelaxed);
       desc->AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
     }
@@ -73,14 +73,14 @@ template <>
 auto
 MwCASTarget<AOPT>::Execute(  //
     [[maybe_unused]] const OPType type,
-    const Operation &positions)  //
+    const Operation& positions)  //
     -> size_t
 {
   while (true) {
-    [[maybe_unused]] const auto &guard = AOPT::CreateEpochGuard();
-    auto *desc = AOPT::GetDescriptor();
+    [[maybe_unused]] const auto& guard = AOPT::CreateEpochGuard();
+    auto* const desc = AOPT::GetDescriptor();
     for (const auto pos : positions) {
-      auto *addr = &(target_fields_[pos].val);
+      auto* const addr = &(target_fields_[pos].val);
       const auto old_val = AOPT::Read<size_t>(addr, kRelaxed);
       desc->AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
     }
@@ -93,13 +93,13 @@ template <>
 auto
 MwCASTarget<LFMwCAS>::Execute(  //
     [[maybe_unused]] const OPType type,
-    const Operation &positions)  //
+    const Operation& positions)  //
     -> size_t
 {
   while (true) {
-    auto *desc = LFMwCAS::GetDescriptor();
+    auto* const desc = LFMwCAS::GetDescriptor();
     for (const auto pos : positions) {
-      auto *addr = &(target_fields_[pos].val);
+      auto* const addr = &(target_fields_[pos].val);
       const auto [old_val, word] = LFMwCAS::Read<size_t>(addr, kRelaxed);
       desc->AddMwCASTarget(addr, word, old_val + 1, kRelaxed);
     }
@@ -113,18 +113,18 @@ template <>
 auto
 MwCASTarget<PMwCAS>::Execute(  //
     [[maybe_unused]] const OPType type,
-    const Operation &positions)  //
+    const Operation& positions)  //
     -> size_t
 {
   using PMwCASField = ::pmwcas::MwcTargetField<uint64_t>;
 
   while (true) {
-    auto *desc = pmwcas_desc_pool_->AllocateDescriptor();
-    auto *epoch = pmwcas_desc_pool_->GetEpoch();
+    auto* const desc = pmwcas_desc_pool_->AllocateDescriptor();
+    auto* const epoch = pmwcas_desc_pool_->GetEpoch();
     epoch->Protect();
     for (const auto pos : positions) {
-      auto *addr = &(target_fields_[pos].val);
-      const auto old_val = std::bit_cast<PMwCASField *>(addr)->GetValueProtected();
+      auto* const addr = &(target_fields_[pos].val);
+      const auto old_val = std::bit_cast<PMwCASField*>(addr)->GetValueProtected();
       desc->AddEntry(addr, old_val, old_val + 1);
     }
     const auto success = desc->MwCAS();

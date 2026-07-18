@@ -120,7 +120,7 @@ DEFINE_validator(timeout, &::dbgroup::benchmark::ValidatePositiveValue);
 template <class Impl>
 void
 RunBenchmark(  //
-    const std::string &target_name,
+    const std::string& target_name,
     const size_t target_num)
 {
   using OperationEngine = ::dbgroup::OperationEngine;
@@ -139,7 +139,7 @@ RunBenchmark(  //
   if (FLAGS_csv) {
     builder.OutputAsCSV();
   }
-  auto &&bench = builder.Build();
+  auto&& bench = builder.Build();
   bench->Run();
 }
 
@@ -150,7 +150,7 @@ RunBenchmark(  //
 auto
 main(  //
     int argc,
-    char *argv[])  //
+    char* argv[])  //
     -> int
 {
   // parse command line options
