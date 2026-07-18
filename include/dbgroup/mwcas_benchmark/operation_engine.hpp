@@ -85,7 +85,7 @@ class OperationEngine
           rand_{rand_seed},
           target_num_{target_num},
           positions_(target_num, 0),
-          pos_index_{pos_index}
+          pos_index_{std::move(pos_index)}
     {
       ++(*this);
     }
