@@ -162,6 +162,7 @@ template class MwCASTarget<DLFMwCAS>;
 template class MwCASTarget<CASN>;
 template class MwCASTarget<AOPT>;
 template class MwCASTarget<LFMwCAS>;
+template class MwCASTarget<LFMwCASWeak>;
 #ifdef MWCAS_BENCH_USE_PMWCAS
 template class MwCASTarget<PMwCAS>;
 #endif
