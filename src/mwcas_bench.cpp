@@ -58,6 +58,11 @@ DEFINE_bool(  //
     "Use lock-free MwCAS as a competitor.");
 
 DEFINE_bool(  //
+    lf_mwcas_weak,
+    false,
+    "Use lock-free MwCAS weak as a competitor.");
+
+DEFINE_bool(  //
     pmwcas,
     false,
 #ifdef MWCAS_BENCH_USE_PMWCAS
@@ -180,6 +185,7 @@ main(  //
   if (FLAGS_casn) RunBenchmark<CASN>("CASN", target_num);
   if (FLAGS_aopt) RunBenchmark<AOPT>("AOPT", target_num);
   if (FLAGS_lf_mwcas) RunBenchmark<LFMwCAS>("Lock-free MwCAS", target_num);
+  if (FLAGS_lf_mwcas_weak) RunBenchmark<LFMwCASWeak>("Lock-free MwCAS Weak", target_num);
 #ifdef MWCAS_BENCH_USE_PMWCAS
   if (FLAGS_pmwcas) RunBenchmark<PMwCAS>("PMwCAS", target_num);
 #endif

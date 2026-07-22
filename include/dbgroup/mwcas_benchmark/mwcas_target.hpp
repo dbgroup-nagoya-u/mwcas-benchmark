@@ -49,6 +49,9 @@ using AOPT = ::dbgroup::atomic::mwcas::lock_free::AOPTDescriptor;
 #include <dbgroup/atomic/mwcas/lock_free/mwcas_descriptor.hpp>
 using LFMwCAS = ::dbgroup::atomic::mwcas::lock_free::MwCASDescriptor;
 
+#include <dbgroup/atomic/mwcas/lock_free/mwcas_descriptor_weak.hpp>
+using LFMwCASWeak = ::dbgroup::atomic::mwcas::lock_free::MwCASDescriptorWeak;
+
 #ifdef MWCAS_BENCH_USE_PMWCAS
 // C++ standard libraries
 #include <memory>
@@ -102,8 +105,9 @@ class MwCASTarget
     }
 #endif
 
-    if constexpr (std::is_same_v<Impl, CASN>     //
-                  || std::is_same_v<Impl, AOPT>  //
+    if constexpr (std::is_same_v<Impl, CASN>            //
+                  || std::is_same_v<Impl, AOPT>         //
+                  || std::is_same_v<Impl, LFMwCASWeak>  //
                   || std::is_same_v<Impl, LFMwCAS>) {
       const auto cleaner_num = 1UL + static_cast<size_t>(thread_num / 24);  // NOLINT
       Impl::StartGC(::dbgroup::memory::kDefaultGCTime, cleaner_num);
@@ -122,8 +126,9 @@ class MwCASTarget
 
   ~MwCASTarget()
   {
-    if constexpr (std::is_same_v<Impl, CASN>     //
-                  || std::is_same_v<Impl, AOPT>  //
+    if constexpr (std::is_same_v<Impl, CASN>            //
+                  || std::is_same_v<Impl, AOPT>         //
+                  || std::is_same_v<Impl, LFMwCASWeak>  //
                   || std::is_same_v<Impl, LFMwCAS>) {
       Impl::StopGC();
     }

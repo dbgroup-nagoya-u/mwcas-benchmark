@@ -100,7 +100,26 @@ MwCASTarget<LFMwCAS>::Execute(  //
     auto* const desc = LFMwCAS::GetDescriptor();
     for (const auto pos : positions) {
       auto* const addr = &(target_fields_[pos].val);
-      const auto [old_val, word] = LFMwCAS::Read<size_t>(addr, kRelaxed);
+      const auto old_val = LFMwCAS::Read<size_t>(addr, kRelaxed);
+      desc->AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
+    }
+    if (desc->MwCAS()) break;
+  }
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<LFMwCASWeak>::Execute(  //
+    [[maybe_unused]] const OPType type,
+    const Operation& positions)  //
+    -> size_t
+{
+  while (true) {
+    auto* const desc = LFMwCASWeak::GetDescriptor();
+    for (const auto pos : positions) {
+      auto* const addr = &(target_fields_[pos].val);
+      const auto [old_val, word] = LFMwCASWeak::Read<size_t>(addr, kRelaxed);
       desc->AddMwCASTarget(addr, word, old_val + 1, kRelaxed);
     }
     if (desc->MwCAS()) break;
