@@ -112,20 +112,14 @@ class OperationEngine
      * @retval false otherwise.
      * @note Our benchmark template requires this operator.
      */
-    [[nodiscard]]
-    constexpr explicit
-    operator bool() const
-    {
-      return true;
-    }
+    [[nodiscard]] constexpr explicit operator bool() const { return true; }
 
     /**
      * @retval 1st: The current operation type.
      * @retval 2nd: Operation arguments.
      * @note Our benchmark template requires this operator.
      */
-    [[nodiscard]]
-    constexpr auto
+    [[nodiscard]] auto
     operator*() const  //
         -> std::pair<OPType, Operation>
     {
@@ -222,8 +216,7 @@ class OperationEngine
    * @return An iterator for generating operations.
    * @note Our benchmark template requires this function.
    */
-  [[nodiscard]]
-  auto
+  [[nodiscard]] auto
   GetOPIter(  //
       [[maybe_unused]] const size_t thread_id,
       const size_t rand_seed) const  //
