@@ -25,7 +25,7 @@ parameter:
       settings:
         MWCAS_BENCH_MAX_TARGET_NUM: 8
         MWCAS_BENCH_USE_PMWCAS: OFF
-        MWCAS_BENCH_USE_MIMALLOC: OFF
+        MWCAS_BENCH_USE_MIMALLOC: ON
         MWCAS_BENCH_USE_TBBMALLOC: OFF
 
 unitTest:

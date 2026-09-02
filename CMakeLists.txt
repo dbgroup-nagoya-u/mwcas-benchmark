@@ -36,7 +36,7 @@ option(
 option(
   MWCAS_BENCH_USE_MIMALLOC
   "A flag for overriding entire memory allocation by mimalloc."
-  OFF
+  ON
 )
 
 option(
@@ -61,6 +61,8 @@ endif()
 #------------------------------------------------------------------------------#
 # Configurations
 #------------------------------------------------------------------------------#
+
+set(DBGROUP_MAX_THREAD_NUM 1024 CACHE STRING "Manual override for max thread number" FORCE)
 
 # use command line options
 find_package(gflags REQUIRED)
@@ -87,7 +89,7 @@ if (${MWCAS_BENCH_USE_MIMALLOC})
   FetchContent_Declare(
       mimalloc
       GIT_REPOSITORY "https://github.com/microsoft/mimalloc.git"
-      GIT_TAG "e14cfd2578fd68205b8d38895abe120bb622580e"
+      GIT_TAG "7a2a41134a544f34df9f58c5d7077e63228637ca"  # v3.0.10
   )
   FetchContent_MakeAvailable(mimalloc)
 
