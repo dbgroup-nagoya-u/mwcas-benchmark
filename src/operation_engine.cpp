@@ -29,10 +29,12 @@ OperationEngine::OperationEngine(  //
     const size_t target_num,
     const size_t array_cap,
     const double skew_param,
-    const size_t random_seed)
+    const size_t random_seed,
+    const double read_ratio)
     : arr_cap_{array_cap}
     , target_num_{target_num}
     , skew_parameter_{skew_param}
+    , read_ratio_{read_ratio}
 {
   pos_index_.reserve(array_cap);
   for (size_t i = 0; i < array_cap; ++i) {
@@ -46,9 +48,16 @@ auto
 OperationEngine::OPIter::operator++()  //
     -> OPIter&
 {
+  // select an operation type
+  type_ = (type_dist_(rand_) < read_ratio_) ? kRead : kMwCAS;
+
+  // a read operation targets only one word
+  const auto target_num = (type_ == kRead) ? 1UL : target_num_;
+  positions_.resize(target_num);
+
   // generate unique targets
   auto&& cur_end = positions_.begin();
-  for (size_t i = 0; i < target_num_; ++i, ++cur_end) {
+  for (size_t i = 0; i < target_num; ++i, ++cur_end) {
     auto pos = zipf_(rand_);
     while (std::find(positions_.begin(), cur_end, pos) != cur_end) {
       // continue until the different target is selected
@@ -58,7 +67,7 @@ OperationEngine::OPIter::operator++()  //
   }
 
   // convert to array positions and sort
-  for (size_t i = 0; i < target_num_; ++i) {
+  for (size_t i = 0; i < target_num; ++i) {
     positions_[i] = pos_index_[positions_[i]];
   }
   std::sort(positions_.begin(), positions_.end());

@@ -49,7 +49,8 @@ class OperationEngine
    * @note Our benchmark template requires this type.
    */
   enum OPType {
-    kMwCAS = 0,
+    kRead = 0,
+    kMwCAS,
     kTotalNum,  /// @note This element is mandatory.
   };
 
@@ -74,18 +75,21 @@ class OperationEngine
      * @param skew_param A skew parameter in Zipf's law.
      * @param random_seed A seed value for reproducibility.
      * @param pos_index The index for indicating actual positions in an array.
+     * @param read_ratio The ratio of read operations.
      */
     OPIter(  //
         const size_t target_num,
         const size_t arr_cap,
         const double skew_parameter,
         const size_t rand_seed,
-        Operation pos_index)
+        Operation pos_index,
+        const double read_ratio)
         : zipf_{0, arr_cap - 1, skew_parameter}
         , rand_{rand_seed}
         , target_num_{target_num}
         , positions_(target_num, 0)
         , pos_index_{std::move(pos_index)}
+        , read_ratio_{read_ratio}
     {
       ++(*this);
     }
@@ -112,7 +116,11 @@ class OperationEngine
      * @retval false otherwise.
      * @note Our benchmark template requires this operator.
      */
-    [[nodiscard]] constexpr explicit operator bool() const { return true; }
+    [[nodiscard]] constexpr explicit
+    operator bool() const
+    {
+      return true;
+    }
 
     /**
      * @retval 1st: The current operation type.
@@ -155,6 +163,12 @@ class OperationEngine
     /// @brief The index for indicating actual positions in an array.
     Operation pos_index_{};
 
+    /// @brief The ratio of read operations.
+    double read_ratio_{};
+
+    /// @brief A distribution for selecting operation types.
+    std::uniform_real_distribution<double> type_dist_{0.0, 1.0};
+
     /// @brief An operation type to be executed.
     /// @note Our benchmark template requires this field.
     OPType type_{};
@@ -171,12 +185,14 @@ class OperationEngine
    * @param array_cap The capacity of an array.
    * @param skew_param A skew parameter in Zipf's law.
    * @param random_seed A seed value for reproducibility.
+   * @param read_ratio The ratio of read operations.
    */
   OperationEngine(  //
       size_t target_num,
       size_t array_cap,
       double skew_param,
-      size_t random_seed);
+      size_t random_seed,
+      double read_ratio = 0.0);
 
   OperationEngine(const OperationEngine&) = default;
   OperationEngine(OperationEngine&&) = default;
@@ -201,6 +217,8 @@ class OperationEngine
       -> std::string_view
   {
     switch (e) {
+      case kRead:
+        return "Read";
       case kMwCAS:
         return "MwCAS";
       default:
@@ -222,7 +240,7 @@ class OperationEngine
       const size_t rand_seed) const  //
       -> OPIter
   {
-    return OPIter{target_num_, arr_cap_, skew_parameter_, rand_seed, pos_index_};
+    return OPIter{target_num_, arr_cap_, skew_parameter_, rand_seed, pos_index_, read_ratio_};
   }
 
  private:
@@ -241,6 +259,9 @@ class OperationEngine
 
   /// @brief A skew parameter in Zipf's law.
   double skew_parameter_{};
+
+  /// @brief The ratio of read operations.
+  double read_ratio_{};
 };
 
 }  // namespace dbgroup

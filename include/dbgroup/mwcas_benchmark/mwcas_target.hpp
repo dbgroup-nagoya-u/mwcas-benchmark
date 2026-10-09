@@ -163,18 +163,47 @@ class MwCASTarget
   }
 
   /**
-   * @brief Perform a PMwCAS operation.
+   * @brief Perform a read or MwCAS operation.
    *
-   * @param type A dummy input.
+   * @param type An operation type.
+   * @param positions Target positions.
+   * @return The number of executed operations (i.e., 1).
+   */
+  auto
+  Execute(  //
+      const OPType type,
+      const Operation& positions)  //
+      -> size_t
+  {
+    if (type == OPType::kRead) return Read(positions[0]);
+    return MwCAS(positions);
+  }
+
+ private:
+  /*##########################################################################*
+   * Internal utilities
+   *##########################################################################*/
+
+  /**
+   * @brief Read a value from a target word.
+   *
+   * @param pos A target position.
+   * @return The number of executed operations (i.e., 1).
+   */
+  auto Read(       //
+      size_t pos)  //
+      -> size_t;
+
+  /**
+   * @brief Perform a MwCAS operation.
+   *
    * @param positions MwCAS target positions.
    * @return The number of executed operations (i.e., 1).
    */
-  auto Execute(  //
-      OPType type,
+  auto MwCAS(                      //
       const Operation& positions)  //
       -> size_t;
 
- private:
   /*##########################################################################*
    * Internal classes
    *##########################################################################*/

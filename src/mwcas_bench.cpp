@@ -91,6 +91,11 @@ DEFINE_uint64(  //
     1000000,
     "The capacity of an array for MwCAS targets.");
 
+DEFINE_double(  //
+    read_ratio,
+    0,
+    "The ratio of read operations (0 <= read_ratio <= 1).");
+
 /*############################################################################*
  * Utility options
  *############################################################################*/
@@ -114,9 +119,27 @@ DEFINE_bool(  //
  * Option validators
  *############################################################################*/
 
+/**
+ * @param flag_name A flag name.
+ * @param ratio A given ratio.
+ * @retval true if a given ratio is in [0, 1].
+ * @retval false otherwise.
+ */
+auto
+ValidateRatio(  //
+    const char* flag_name,
+    const double ratio)  //
+    -> bool
+{
+  if (ratio >= 0.0 && ratio <= 1.0) return true;
+  std::cerr << "A ratio must be in [0, 1]: --" << flag_name << "=" << ratio << "\n";
+  return false;
+}
+
 DEFINE_validator(num_thread, &::dbgroup::benchmark::ValidateThreadNum);
 DEFINE_validator(skew_parameter, &::dbgroup::benchmark::ValidateSkewParameter);
 DEFINE_validator(arr_cap, &::dbgroup::benchmark::ValidatePositiveValue);
+DEFINE_validator(read_ratio, &ValidateRatio);
 DEFINE_validator(seed, &::dbgroup::benchmark::ValidateStr2UInt);
 DEFINE_validator(timeout, &::dbgroup::benchmark::ValidatePositiveValue);
 
@@ -137,7 +160,8 @@ RunBenchmark(  //
 
   const auto seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
   Target target{FLAGS_arr_cap, FLAGS_num_thread};
-  OperationEngine ops_engine{target_num, FLAGS_arr_cap, FLAGS_skew_parameter, seed};
+  OperationEngine ops_engine{target_num, FLAGS_arr_cap, FLAGS_skew_parameter, seed,
+                             FLAGS_read_ratio};
 
   Builder builder{target, target_name, ops_engine};
   builder.SetThreadNum(FLAGS_num_thread);
