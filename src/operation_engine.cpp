@@ -48,16 +48,17 @@ auto
 OperationEngine::OPIter::operator++()  //
     -> OPIter&
 {
-  // select an operation type
-  type_ = (type_dist_(rand_) < read_ratio_) ? kRead : kMwCAS;
-
-  // a read operation targets only one word
-  const auto target_num = (type_ == kRead) ? 1UL : target_num_;
-  positions_.resize(target_num);
-
+  if (type_dist_(rand_) < read_ratio_) {
+    // prepare a Read operation
+    type_ = kRead;
+    positions_[0] = pos_index_[zipf_(rand_)];
+    return *this;
+  }
+  // prepare an MwCAS operation
+  type_ = kMwCAS;
   // generate unique targets
   auto&& cur_end = positions_.begin();
-  for (size_t i = 0; i < target_num; ++i, ++cur_end) {
+  for (size_t i = 0; i < target_num_; ++i, ++cur_end) {
     auto pos = zipf_(rand_);
     while (std::find(positions_.begin(), cur_end, pos) != cur_end) {
       // continue until the different target is selected
@@ -65,13 +66,11 @@ OperationEngine::OPIter::operator++()  //
     }
     positions_[i] = pos;
   }
-
   // convert to array positions and sort
-  for (size_t i = 0; i < target_num; ++i) {
+  for (size_t i = 0; i < target_num_; ++i) {
     positions_[i] = pos_index_[positions_[i]];
   }
   std::sort(positions_.begin(), positions_.end());
-
   return *this;
 }
 
