@@ -36,7 +36,7 @@ MwCASTarget<DLFMwCAS>::Read(  //
     const size_t pos)         //
     -> size_t
 {
-  [[maybe_unused]] const auto val = DLFMwCAS::Read<size_t>(&(target_fields_[pos].val), kRelaxed);
+  static_cast<void>(DLFMwCAS::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
   return 1;
 }
 
@@ -47,7 +47,7 @@ MwCASTarget<CASN>::Read(  //
     -> size_t
 {
   [[maybe_unused]] const auto& guard = CASN::CreateEpochGuard();
-  [[maybe_unused]] const auto val = CASN::Read<size_t>(&(target_fields_[pos].val), kRelaxed);
+  static_cast<void>(CASN::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
   return 1;
 }
 
@@ -58,7 +58,7 @@ MwCASTarget<AOPT>::Read(  //
     -> size_t
 {
   [[maybe_unused]] const auto& guard = AOPT::CreateEpochGuard();
-  [[maybe_unused]] const auto val = AOPT::Read<size_t>(&(target_fields_[pos].val), kRelaxed);
+  static_cast<void>(AOPT::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
   return 1;
 }
 
@@ -69,7 +69,7 @@ MwCASTarget<LFMwCAS>::Read(  //
     -> size_t
 {
   [[maybe_unused]] const auto& guard = LFMwCAS::CreateEpochGuard();
-  [[maybe_unused]] const auto val = LFMwCAS::Read<size_t>(&(target_fields_[pos].val), kRelaxed);
+  static_cast<void>(LFMwCAS::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
   return 1;
 }
 
@@ -80,8 +80,7 @@ MwCASTarget<LFMwCASWeak>::Read(  //
     -> size_t
 {
   [[maybe_unused]] const auto& guard = LFMwCASWeak::CreateEpochGuard();
-  [[maybe_unused]] const auto [val, word] =
-      LFMwCASWeak::Read<size_t>(&(target_fields_[pos].val), kRelaxed);
+  static_cast<void>(LFMwCASWeak::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
   return 1;
 }
 
@@ -97,7 +96,7 @@ MwCASTarget<PMwCAS>::Read(  //
   auto* const epoch = pmwcas_desc_pool_->GetEpoch();
   epoch->Protect();
   auto* const addr = &(target_fields_[pos].val);
-  [[maybe_unused]] const auto val = std::bit_cast<PMwCASField*>(addr)->GetValueProtected();
+  static_cast<void>(std::bit_cast<PMwCASField*>(addr)->GetValueProtected());
   epoch->Unprotect();
   return 1;
 }
