@@ -27,6 +27,7 @@ parameter:
         MWCAS_BENCH_USE_PMWCAS: OFF
         MWCAS_BENCH_USE_MIMALLOC: ON
         MWCAS_BENCH_USE_TBBMALLOC: OFF
+        DBGROUP_MAX_THREAD_NUM: 1024
 
 unitTest:
   default: w_test

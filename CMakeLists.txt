@@ -62,8 +62,6 @@ endif()
 # Configurations
 #------------------------------------------------------------------------------#
 
-set(DBGROUP_MAX_THREAD_NUM 1024 CACHE STRING "Manual override for max thread number" FORCE)
-
 # use command line options
 find_package(gflags REQUIRED)
 
