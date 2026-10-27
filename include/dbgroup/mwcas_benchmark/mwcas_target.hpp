@@ -19,46 +19,57 @@
 
 // C++ standard libraries
 #include <cstddef>
-#include <memory>
+#include <cstdint>
 #include <type_traits>
 #include <vector>
 
 // external system libraries
 #include <gflags/gflags.h>
 
-// external libraries
-#include "dbgroup/thread/common.hpp"
+// external C++ libraries
+#include <dbgroup/constants.hpp>
+#include <dbgroup/memory/utility.hpp>
 
 // local sources
-#include "dbgroup/mwcas_benchmark/operation.hpp"
+#include "dbgroup/mwcas_benchmark/operation_engine.hpp"
 
-/*##############################################################################
+/*############################################################################*
  * Competitors
  *############################################################################*/
 
-#include "dbgroup/atomic/mwcas/deadlock_free/mwcas_descriptor.hpp"
+#include <dbgroup/atomic/mwcas/deadlock_free/mwcas_descriptor.hpp>
 using DLFMwCAS = ::dbgroup::atomic::mwcas::deadlock_free::MwCASDescriptor;
 
-#include "dbgroup/atomic/mwcas/lock_free/casn_descriptor.hpp"
+#include <dbgroup/atomic/mwcas/lock_free/casn_descriptor.hpp>
 using CASN = ::dbgroup::atomic::mwcas::lock_free::CASNDescriptor;
 
-#include "dbgroup/atomic/mwcas/lock_free/aopt_descriptor.hpp"
+#include <dbgroup/atomic/mwcas/lock_free/aopt_descriptor.hpp>
 using AOPT = ::dbgroup::atomic::mwcas::lock_free::AOPTDescriptor;
 
+#include <dbgroup/atomic/mwcas/lock_free/mwcas_descriptor.hpp>
+using LFMwCAS = ::dbgroup::atomic::mwcas::lock_free::MwCASDescriptor;
+
+#include <dbgroup/atomic/mwcas/lock_free/mwcas_descriptor_weak.hpp>
+using LFMwCASWeak = ::dbgroup::atomic::mwcas::lock_free::MwCASDescriptorWeak;
+
 #ifdef MWCAS_BENCH_USE_PMWCAS
-#include "mwcas/mwcas.h"
-#include "pmwcas.h"
+// C++ standard libraries
+#include <memory>
+
+// competitor's headers
+#include <mwcas/mwcas.h>
+#include <pmwcas.h>
 using PMwCAS = ::pmwcas::DescriptorPool;
 #endif
 
-/*##############################################################################
+/*############################################################################*
  * Class declarations
  *############################################################################*/
 
 namespace dbgroup
 {
 /**
- * @brief A class to deal with MwCAS target data and algorthms.
+ * @brief A class to deal with MwCAS target data and algorithms.
  *
  * @tparam Impl A certain implementation of MwCAS algorithms.
  */
@@ -66,18 +77,26 @@ template <class Impl>
 class MwCASTarget
 {
  public:
-  /*############################################################################
+  /*##########################################################################*
+   * Public types
+   *##########################################################################*/
+
+  using OPType = OperationEngine::OPType;
+  using Operation = OperationEngine::Operation;
+
+  /*##########################################################################*
    * Public constructors and assignment operators
    *##########################################################################*/
 
   explicit MwCASTarget(  //
-      const size_t array_cap)
+      const size_t array_cap,
+      [[maybe_unused]] const size_t thread_num)
       : target_fields_{array_cap, CacheLineBlock{0}}
   {
 #ifdef MWCAS_BENCH_USE_PMWCAS
     // prepare descriptor pool for PMwCAS if needed
     if constexpr (std::is_same_v<Impl, PMwCAS>) {
-      constexpr uint32_t kPartition = ::dbgroup::thread::kMaxThreadNum;
+      constexpr uint32_t kPartition = thread_num;
       constexpr uint32_t kPoolCapacity = kPartition * 1024;
       ::pmwcas::InitLibrary(  //
           pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
@@ -86,34 +105,53 @@ class MwCASTarget
     }
 #endif
 
-    if constexpr (std::is_same_v<Impl, CASN> || std::is_same_v<Impl, AOPT>) {
-      Impl::StartGC();
+    if constexpr (std::is_same_v<Impl, CASN>            //
+                  || std::is_same_v<Impl, AOPT>         //
+                  || std::is_same_v<Impl, LFMwCASWeak>  //
+                  || std::is_same_v<Impl, LFMwCAS>) {
+      const auto cleaner_num = 1UL + static_cast<size_t>(thread_num / 24);  // NOLINT
+      Impl::StartGC(::dbgroup::memory::kDefaultGCTime, cleaner_num);
     }
   }
 
-  MwCASTarget(const MwCASTarget &) = delete;
-  MwCASTarget(MwCASTarget &&) = delete;
+  MwCASTarget(const MwCASTarget&) = delete;
+  MwCASTarget(MwCASTarget&&) = delete;
 
-  MwCASTarget &operator=(const MwCASTarget &obj) = delete;
-  MwCASTarget &operator=(MwCASTarget &&) = delete;
+  MwCASTarget& operator=(const MwCASTarget& obj) = delete;
+  MwCASTarget& operator=(MwCASTarget&&) = delete;
 
-  /*############################################################################
+  /*##########################################################################*
    * Public destructors
    *##########################################################################*/
 
   ~MwCASTarget()
   {
-    if constexpr (std::is_same_v<Impl, CASN> || std::is_same_v<Impl, AOPT>) {
+    if constexpr (std::is_same_v<Impl, CASN>            //
+                  || std::is_same_v<Impl, AOPT>         //
+                  || std::is_same_v<Impl, LFMwCASWeak>  //
+                  || std::is_same_v<Impl, LFMwCAS>) {
       Impl::StopGC();
     }
   }
 
-  /*############################################################################
+  /*##########################################################################*
    * Public APIs
    *##########################################################################*/
 
   constexpr void
   SetUpForWorker() const
+  {
+    // do nothing
+  }
+
+  constexpr void
+  PreProcess() const
+  {
+    // do nothing
+  }
+
+  constexpr void
+  PostProcess() const
   {
     // do nothing
   }
@@ -125,17 +163,48 @@ class MwCASTarget
   }
 
   /**
-   * @brief Perform a PMwCAS operation.
+   * @brief Perform a read or MwCAS operation.
    *
-   * @param ops An operation to be executed.
+   * @param type An operation type.
+   * @param positions Target positions.
    * @return The number of executed operations (i.e., 1).
    */
-  auto Execute(              //
-      const Operation &ops)  //
-      -> size_t;
+  auto
+  Execute(  //
+      const OPType type,
+      const Operation& positions)  //
+      -> size_t
+  {
+    if (type == OPType::kRead) return Read(positions[0]);
+    return MwCAS(positions);
+  }
 
  private:
-  /*############################################################################
+  /*##########################################################################*
+   * Internal utilities
+   *##########################################################################*/
+
+  /**
+   * @brief Read a value from a target word.
+   *
+   * @param pos A target position.
+   * @return The number of executed operations (i.e., 1).
+   */
+  auto Read(       //
+      size_t pos)  //
+      -> size_t;
+
+  /**
+   * @brief Perform a MwCAS operation.
+   *
+   * @param positions MwCAS target positions.
+   * @return The number of executed operations (i.e., 1).
+   */
+  auto MwCAS(                      //
+      const Operation& positions)  //
+      -> size_t;
+
+  /*##########################################################################*
    * Internal classes
    *##########################################################################*/
 
@@ -143,11 +212,11 @@ class MwCASTarget
    * @brief A class for aligning memory block into cache lines.
    *
    */
-  struct alignas(64) CacheLineBlock {  // NOLINT
+  struct alignas(kCacheLineSize) CacheLineBlock {
     uint64_t val;
   };
 
-  /*############################################################################
+  /*##########################################################################*
    * Internal member variables
    *##########################################################################*/
 

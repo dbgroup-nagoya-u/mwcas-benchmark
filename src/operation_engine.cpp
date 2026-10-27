@@ -20,6 +20,7 @@
 // C++ standard libraries
 #include <algorithm>
 #include <cstddef>
+#include <random>
 
 namespace dbgroup
 {
@@ -28,8 +29,12 @@ OperationEngine::OperationEngine(  //
     const size_t target_num,
     const size_t array_cap,
     const double skew_param,
-    const size_t random_seed)
-    : target_num_{target_num}, zipf_dist_{0, array_cap - 1, skew_param}
+    const size_t random_seed,
+    const double read_ratio)
+    : arr_cap_{array_cap}
+    , target_num_{target_num}
+    , skew_parameter_{skew_param}
+    , read_ratio_{read_ratio}
 {
   pos_index_.reserve(array_cap);
   for (size_t i = 0; i < array_cap; ++i) {
@@ -40,31 +45,33 @@ OperationEngine::OperationEngine(  //
 }
 
 auto
-OperationEngine::Generate(  //
-    const size_t n,
-    const size_t random_seed) const  //
-    -> std::vector<Operation>
+OperationEngine::OPIter::operator++()  //
+    -> OPIter&
 {
-  std::mt19937_64 rand_engine{random_seed};
-
-  // generate an operation-queue for benchmarking
-  std::vector<Operation> operations{};
-  operations.reserve(n);
-  for (size_t i = 0; i < n; ++i) {
-    // select target addresses for i-th operation
-    Operation ops{};
-    for (size_t j = 0; j < target_num_; ++j) {
-      auto pos = zipf_dist_(rand_engine);
-      while (!ops.SetPositionIfUnique(pos_index_.at(pos))) {
-        // continue until the different target is selected
-        pos = zipf_dist_(rand_engine);
-      }
-    }
-    ops.SortTargets();
-    operations.emplace_back(ops);
+  if (type_dist_(rand_) < read_ratio_) {
+    // prepare a Read operation
+    type_ = kRead;
+    positions_[0] = pos_index_[zipf_(rand_)];
+    return *this;
   }
-
-  return operations;
+  // prepare an MwCAS operation
+  type_ = kMwCAS;
+  // generate unique targets
+  auto&& cur_end = positions_.begin();
+  for (size_t i = 0; i < target_num_; ++i, ++cur_end) {
+    auto pos = zipf_(rand_);
+    while (std::find(positions_.begin(), cur_end, pos) != cur_end) {
+      // continue until the different target is selected
+      ++pos;
+    }
+    positions_[i] = pos;
+  }
+  // convert to array positions and sort
+  for (size_t i = 0; i < target_num_; ++i) {
+    positions_[i] = pos_index_[positions_[i]];
+  }
+  std::sort(positions_.begin(), positions_.end());
+  return *this;
 }
 
 }  // namespace dbgroup

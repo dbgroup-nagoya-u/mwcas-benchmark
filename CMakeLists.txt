@@ -34,6 +34,12 @@ option(
 )
 
 option(
+  MWCAS_BENCH_USE_MIMALLOC
+  "A flag for overriding entire memory allocation by mimalloc."
+  ON
+)
+
+option(
   MWCAS_BENCH_USE_TBBMALLOC
   "A flag for overriding entire memory allocation by Intel oneTBB malloc."
   OFF
@@ -59,16 +65,11 @@ endif()
 # use command line options
 find_package(gflags REQUIRED)
 
-# use an efficient memory allocator
-if (${MWCAS_BENCH_USE_TBBMALLOC})
-  find_package(TBB REQUIRED)
-endif()
-
 # use our utility
 FetchContent_Declare(
   cpp-utility
   GIT_REPOSITORY "https://github.com/dbgroup-nagoya-u/cpp-utility.git"
-  GIT_TAG "14008188d31fd77c99efec12c368b0aa874c1c2b"
+  GIT_TAG "1b790bf1a89cf29b5d759e4dd84ce814e727b06d" # v0.17.1
 )
 FetchContent_MakeAvailable(cpp-utility)
 
@@ -76,9 +77,30 @@ FetchContent_MakeAvailable(cpp-utility)
 FetchContent_Declare(
     cpp-benchmark
     GIT_REPOSITORY "https://github.com/dbgroup-nagoya-u/cpp-benchmark.git"
-    GIT_TAG "9c2e9c1393ee359cf2a304c1239fddcf9847636b"
+    GIT_TAG "92457191c27a6599ed2492954040732e89303052" #2.4.0
 )
 FetchContent_MakeAvailable(cpp-benchmark)
+
+#use mimalloc as an efficient memory allocator
+if (${MWCAS_BENCH_USE_MIMALLOC})
+  set(MI_BUILD_TESTS OFF CACHE STRING "" FORCE)
+  FetchContent_Declare(
+      mimalloc
+      GIT_REPOSITORY "https://github.com/microsoft/mimalloc.git"
+      GIT_TAG "7a2a41134a544f34df9f58c5d7077e63228637ca"  # v3.0.10
+  )
+  FetchContent_MakeAvailable(mimalloc)
+
+  if (${MWCAS_BENCH_USE_TBBMALLOC})
+    message("[${PROJECT_NAME}] Ignore TBB malloc to use mimalloc.")
+    set(MWCAS_BENCH_USE_TBBMALLOC OFF CACHE STRING "" FORCE)
+  endif()
+endif()
+
+# use TBB malloc an efficient memory allocator
+if (${MWCAS_BENCH_USE_TBBMALLOC})
+  find_package(TBB REQUIRED)
+endif()
 
 #------------------------------------------------------------------------------#
 # Build Benchmark
@@ -86,16 +108,14 @@ FetchContent_MakeAvailable(cpp-benchmark)
 
 # build as library for testing
 add_library(benchmarker STATIC
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/operation.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/operation_engine.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/mwcas_target.cpp"
 )
 target_compile_options(benchmarker PRIVATE
+  $<$<STREQUAL:"${CMAKE_BUILD_TYPE}","Release">:-march=native>
+  $<$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">:-g3>
   -Wall
   -Wextra
-  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Release">:"-O2 -march=native">
-  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
-  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
 )
 target_compile_definitions(benchmarker PUBLIC
   $<$<BOOL:${MWCAS_BENCH_USE_PMWCAS}>:MWCAS_BENCH_USE_PMWCAS>
@@ -115,16 +135,16 @@ add_executable(mwcas_bench
   "${CMAKE_CURRENT_SOURCE_DIR}/src/mwcas_bench.cpp"
 )
 target_compile_options(mwcas_bench PRIVATE
+  $<$<STREQUAL:"${CMAKE_BUILD_TYPE}","Release">:-march=native>
+  $<$<STREQUAL:"${CMAKE_BUILD_TYPE}","Debug">:-g3>
   -Wall
   -Wextra
-  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Release">:"-O2 -march=native">
-  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"RelWithDebInfo">:"-g3 -Og -pg">
-  $<$<STREQUAL:${CMAKE_BUILD_TYPE},"Debug">:"-g3 -O0 -pg">
 )
 target_link_libraries(mwcas_bench PRIVATE
   benchmarker
   gflags
   $<$<BOOL:${MWCAS_BENCH_USE_TBBMALLOC}>:tbbmalloc_proxy>
+  $<$<BOOL:${MWCAS_BENCH_USE_MIMALLOC}>:mimalloc-static>
 )
 
 #------------------------------------------------------------------------------#

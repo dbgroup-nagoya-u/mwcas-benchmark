@@ -18,40 +18,104 @@
 #include "dbgroup/mwcas_benchmark/mwcas_target.hpp"
 
 // C++ standard libraries
-#include <atomic>
 #include <cstddef>
+#include <vector>
 
-// local sources
-#include "dbgroup/mwcas_benchmark/operation.hpp"
-
-namespace
-{
-/*##############################################################################
- * Local constants
- *############################################################################*/
-
-/// @brief An alias of the relaxed memory order.
-constexpr auto kRelaxed = std::memory_order_relaxed;
-
-}  // namespace
+// external C++ libraries
+#include <dbgroup/constants.hpp>
 
 namespace dbgroup
 {
-/*##############################################################################
- * Competitor specific implementations
+/*############################################################################*
+ * Competitor specific implementations: read operations
  *############################################################################*/
 
 template <>
 auto
-MwCASTarget<DLFMwCAS>::Execute(  //
-    const Operation &ops)        //
+MwCASTarget<DLFMwCAS>::Read(  //
+    const size_t pos)         //
     -> size_t
 {
-  const auto &positions = ops.GetPositions();
+  static_cast<void>(DLFMwCAS::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<CASN>::Read(  //
+    const size_t pos)     //
+    -> size_t
+{
+  [[maybe_unused]] const auto& guard = CASN::CreateEpochGuard();
+  static_cast<void>(CASN::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<AOPT>::Read(  //
+    const size_t pos)     //
+    -> size_t
+{
+  [[maybe_unused]] const auto& guard = AOPT::CreateEpochGuard();
+  static_cast<void>(AOPT::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<LFMwCAS>::Read(  //
+    const size_t pos)        //
+    -> size_t
+{
+  [[maybe_unused]] const auto& guard = LFMwCAS::CreateEpochGuard();
+  static_cast<void>(LFMwCAS::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<LFMwCASWeak>::Read(  //
+    const size_t pos)            //
+    -> size_t
+{
+  [[maybe_unused]] const auto& guard = LFMwCASWeak::CreateEpochGuard();
+  static_cast<void>(LFMwCASWeak::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
+  return 1;
+}
+
+#ifdef MWCAS_BENCH_USE_PMWCAS
+template <>
+auto
+MwCASTarget<PMwCAS>::Read(  //
+    const size_t pos)       //
+    -> size_t
+{
+  using PMwCASField = ::pmwcas::MwcTargetField<uint64_t>;
+
+  auto* const epoch = pmwcas_desc_pool_->GetEpoch();
+  epoch->Protect();
+  auto* const addr = &(target_fields_[pos].val);
+  static_cast<void>(std::bit_cast<PMwCASField*>(addr)->GetValueProtected());
+  epoch->Unprotect();
+  return 1;
+}
+#endif
+
+/*############################################################################*
+ * Competitor specific implementations: MwCAS operations
+ *############################################################################*/
+
+template <>
+auto
+MwCASTarget<DLFMwCAS>::MwCAS(    //
+    const Operation& positions)  //
+    -> size_t
+{
   while (true) {
     DLFMwCAS desc{};
     for (const auto pos : positions) {
-      auto *addr = &(target_fields_[pos].val);
+      auto* const addr = &(target_fields_[pos].val);
       const auto old_val = DLFMwCAS::Read<size_t>(addr, kRelaxed);
       desc.AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
     }
@@ -62,16 +126,15 @@ MwCASTarget<DLFMwCAS>::Execute(  //
 
 template <>
 auto
-MwCASTarget<CASN>::Execute(  //
-    const Operation &ops)    //
+MwCASTarget<CASN>::MwCAS(        //
+    const Operation& positions)  //
     -> size_t
 {
-  const auto &positions = ops.GetPositions();
   while (true) {
-    [[maybe_unused]] const auto &guard = CASN::CreateEpochGuard();
-    auto *desc = CASN::GetDescriptor();
+    [[maybe_unused]] const auto& guard = CASN::CreateEpochGuard();
+    auto* const desc = CASN::GetDescriptor();
     for (const auto pos : positions) {
-      auto *addr = &(target_fields_[pos].val);
+      auto* const addr = &(target_fields_[pos].val);
       const auto old_val = CASN::Read<size_t>(addr, kRelaxed);
       desc->AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
     }
@@ -82,18 +145,53 @@ MwCASTarget<CASN>::Execute(  //
 
 template <>
 auto
-MwCASTarget<AOPT>::Execute(  //
-    const Operation &ops)    //
+MwCASTarget<AOPT>::MwCAS(        //
+    const Operation& positions)  //
     -> size_t
 {
-  const auto &positions = ops.GetPositions();
   while (true) {
-    [[maybe_unused]] const auto &guard = AOPT::CreateEpochGuard();
-    auto *desc = AOPT::GetDescriptor();
+    [[maybe_unused]] const auto& guard = AOPT::CreateEpochGuard();
+    auto* const desc = AOPT::GetDescriptor();
     for (const auto pos : positions) {
-      auto *addr = &(target_fields_[pos].val);
+      auto* const addr = &(target_fields_[pos].val);
       const auto old_val = AOPT::Read<size_t>(addr, kRelaxed);
       desc->AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
+    }
+    if (desc->MwCAS()) break;
+  }
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<LFMwCAS>::MwCAS(     //
+    const Operation& positions)  //
+    -> size_t
+{
+  while (true) {
+    auto* const desc = LFMwCAS::GetDescriptor();
+    for (const auto pos : positions) {
+      auto* const addr = &(target_fields_[pos].val);
+      const auto old_val = LFMwCAS::Read<size_t>(addr, kRelaxed);
+      desc->AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
+    }
+    if (desc->MwCAS()) break;
+  }
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<LFMwCASWeak>::MwCAS(  //
+    const Operation& positions)   //
+    -> size_t
+{
+  while (true) {
+    auto* const desc = LFMwCASWeak::GetDescriptor();
+    for (const auto pos : positions) {
+      auto* const addr = &(target_fields_[pos].val);
+      const auto [old_val, word] = LFMwCASWeak::Read<size_t>(addr, kRelaxed);
+      desc->AddMwCASTarget(addr, word, old_val + 1, kRelaxed);
     }
     if (desc->MwCAS()) break;
   }
@@ -103,20 +201,19 @@ MwCASTarget<AOPT>::Execute(  //
 #ifdef MWCAS_BENCH_USE_PMWCAS
 template <>
 auto
-MwCASTarget<PMwCAS>::Execute(  //
-    const Operation &ops)      //
+MwCASTarget<PMwCAS>::MwCAS(      //
+    const Operation& positions)  //
     -> size_t
 {
   using PMwCASField = ::pmwcas::MwcTargetField<uint64_t>;
 
-  const auto &positions = ops.GetPositions();
   while (true) {
-    auto *desc = pmwcas_desc_pool_->AllocateDescriptor();
-    auto *epoch = pmwcas_desc_pool_->GetEpoch();
+    auto* const desc = pmwcas_desc_pool_->AllocateDescriptor();
+    auto* const epoch = pmwcas_desc_pool_->GetEpoch();
     epoch->Protect();
     for (const auto pos : positions) {
-      auto *addr = &(target_fields_[pos].val);
-      const auto old_val = std::bit_cast<PMwCASField *>(addr)->GetValueProtected();
+      auto* const addr = &(target_fields_[pos].val);
+      const auto old_val = std::bit_cast<PMwCASField*>(addr)->GetValueProtected();
       desc->AddEntry(addr, old_val, old_val + 1);
     }
     const auto success = desc->MwCAS();
@@ -127,13 +224,15 @@ MwCASTarget<PMwCAS>::Execute(  //
 }
 #endif
 
-/*##############################################################################
+/*############################################################################*
  * Explicit instantiation definitions
  *############################################################################*/
 
 template class MwCASTarget<DLFMwCAS>;
 template class MwCASTarget<CASN>;
 template class MwCASTarget<AOPT>;
+template class MwCASTarget<LFMwCAS>;
+template class MwCASTarget<LFMwCASWeak>;
 #ifdef MWCAS_BENCH_USE_PMWCAS
 template class MwCASTarget<PMwCAS>;
 #endif
