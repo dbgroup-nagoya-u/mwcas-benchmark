@@ -24,6 +24,7 @@
 #include <gflags/gflags.h>
 
 // external C++ libraries
+#include <dbgroup/atomic/mwcas/stats.hpp>
 #include <dbgroup/benchmark/benchmarker.hpp>
 #include <dbgroup/benchmark/validator.hpp>
 #include <dbgroup/constants.hpp>
@@ -61,6 +62,26 @@ DEFINE_bool(  //
     lf_mwcas_weak,
     false,
     "Use lock-free MwCAS weak as a competitor.");
+
+DEFINE_bool(  //
+    lf_mwcas_legacy,
+    false,
+    "Use lock-free MwCAS before fixing H1/H2/H10 as a competitor.");
+
+DEFINE_bool(  //
+    lf_mwcas_rc,
+    false,
+    "Use lock-free MwCAS with reference counting as a competitor.");
+
+DEFINE_bool(  //
+    of_mwcas,
+    false,
+    "Use obstruction-free MwCAS (readers abort others) as a competitor.");
+
+DEFINE_bool(  //
+    of_mwcas_rc,
+    false,
+    "Use obstruction-free MwCAS with reference counting as a competitor.");
 
 DEFINE_bool(  //
     pmwcas,
@@ -172,6 +193,9 @@ RunBenchmark(  //
   }
   auto&& bench = builder.Build();
   bench->Run();
+
+  // output event counters if MWCAS_ENABLE_STATS is ON (do nothing otherwise)
+  ::dbgroup::atomic::mwcas::stats::DumpAndReset(std::cerr, target_name.c_str());
 }
 
 /*############################################################################*
@@ -210,6 +234,10 @@ main(  //
   if (FLAGS_aopt) RunBenchmark<AOPT>("AOPT", target_num);
   if (FLAGS_lf_mwcas) RunBenchmark<LFMwCAS>("Lock-free MwCAS", target_num);
   if (FLAGS_lf_mwcas_weak) RunBenchmark<LFMwCASWeak>("Lock-free MwCAS Weak", target_num);
+  if (FLAGS_lf_mwcas_legacy) RunBenchmark<LFMwCASLegacy>("Lock-free MwCAS Legacy", target_num);
+  if (FLAGS_lf_mwcas_rc) RunBenchmark<LFMwCASRC>("Lock-free MwCAS RC", target_num);
+  if (FLAGS_of_mwcas) RunBenchmark<OFMwCAS>("Obstruction-free MwCAS", target_num);
+  if (FLAGS_of_mwcas_rc) RunBenchmark<OFMwCASRC>("Obstruction-free MwCAS RC", target_num);
 #ifdef MWCAS_BENCH_USE_PMWCAS
   if (FLAGS_pmwcas) RunBenchmark<PMwCAS>("PMwCAS", target_num);
 #endif

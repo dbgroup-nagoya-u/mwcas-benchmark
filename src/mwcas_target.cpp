@@ -22,6 +22,7 @@
 #include <vector>
 
 // external C++ libraries
+#include <dbgroup/atomic/mwcas/stats.hpp>
 #include <dbgroup/constants.hpp>
 
 namespace dbgroup
@@ -75,12 +76,56 @@ MwCASTarget<LFMwCAS>::Read(  //
 
 template <>
 auto
+MwCASTarget<LFMwCASLegacy>::Read(  //
+    const size_t pos)              //
+    -> size_t
+{
+  [[maybe_unused]] const auto& guard = LFMwCASLegacy::CreateEpochGuard();
+  static_cast<void>(LFMwCASLegacy::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
+  return 1;
+}
+
+template <>
+auto
 MwCASTarget<LFMwCASWeak>::Read(  //
     const size_t pos)            //
     -> size_t
 {
   [[maybe_unused]] const auto& guard = LFMwCASWeak::CreateEpochGuard();
   static_cast<void>(LFMwCASWeak::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<LFMwCASRC>::Read(  //
+    const size_t pos)          //
+    -> size_t
+{
+  // descriptors are protected by reference counts, so an epoch guard is not needed
+  static_cast<void>(LFMwCASRC::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<OFMwCAS>::Read(  //
+    const size_t pos)        //
+    -> size_t
+{
+  [[maybe_unused]] const auto& guard = OFMwCAS::CreateEpochGuard();
+  static_cast<void>(OFMwCAS::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<OFMwCASRC>::Read(  //
+    const size_t pos)          //
+    -> size_t
+{
+  // descriptors are protected by reference counts, so an epoch guard is not needed
+  static_cast<void>(OFMwCASRC::Read<size_t>(&(target_fields_[pos].val), kRelaxed));
   return 1;
 }
 
@@ -113,6 +158,7 @@ MwCASTarget<DLFMwCAS>::MwCAS(    //
     -> size_t
 {
   while (true) {
+    MWCAS_STAT_INC(kMwCASAttempt);
     DLFMwCAS desc{};
     for (const auto pos : positions) {
       auto* const addr = &(target_fields_[pos].val);
@@ -121,6 +167,7 @@ MwCASTarget<DLFMwCAS>::MwCAS(    //
     }
     if (desc.MwCAS()) break;
   }
+  MWCAS_STAT_INC(kMwCASSuccess);
   return 1;
 }
 
@@ -131,6 +178,7 @@ MwCASTarget<CASN>::MwCAS(        //
     -> size_t
 {
   while (true) {
+    MWCAS_STAT_INC(kMwCASAttempt);
     [[maybe_unused]] const auto& guard = CASN::CreateEpochGuard();
     auto* const desc = CASN::GetDescriptor();
     for (const auto pos : positions) {
@@ -140,6 +188,7 @@ MwCASTarget<CASN>::MwCAS(        //
     }
     if (desc->MwCAS()) break;
   }
+  MWCAS_STAT_INC(kMwCASSuccess);
   return 1;
 }
 
@@ -150,6 +199,7 @@ MwCASTarget<AOPT>::MwCAS(        //
     -> size_t
 {
   while (true) {
+    MWCAS_STAT_INC(kMwCASAttempt);
     [[maybe_unused]] const auto& guard = AOPT::CreateEpochGuard();
     auto* const desc = AOPT::GetDescriptor();
     for (const auto pos : positions) {
@@ -159,6 +209,7 @@ MwCASTarget<AOPT>::MwCAS(        //
     }
     if (desc->MwCAS()) break;
   }
+  MWCAS_STAT_INC(kMwCASSuccess);
   return 1;
 }
 
@@ -169,6 +220,8 @@ MwCASTarget<LFMwCAS>::MwCAS(     //
     -> size_t
 {
   while (true) {
+    MWCAS_STAT_INC(kMwCASAttempt);
+    [[maybe_unused]] const auto& guard = LFMwCAS::CreateEpochGuard();  // H11
     auto* const desc = LFMwCAS::GetDescriptor();
     for (const auto pos : positions) {
       auto* const addr = &(target_fields_[pos].val);
@@ -177,6 +230,28 @@ MwCASTarget<LFMwCAS>::MwCAS(     //
     }
     if (desc->MwCAS()) break;
   }
+  MWCAS_STAT_INC(kMwCASSuccess);
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<LFMwCASLegacy>::MwCAS(  //
+    const Operation& positions)     //
+    -> size_t
+{
+  while (true) {
+    MWCAS_STAT_INC(kMwCASAttempt);
+    [[maybe_unused]] const auto& guard = LFMwCASLegacy::CreateEpochGuard();  // H11
+    auto* const desc = LFMwCASLegacy::GetDescriptor();
+    for (const auto pos : positions) {
+      auto* const addr = &(target_fields_[pos].val);
+      const auto old_val = LFMwCASLegacy::Read<size_t>(addr, kRelaxed);
+      desc->AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
+    }
+    if (desc->MwCAS()) break;
+  }
+  MWCAS_STAT_INC(kMwCASSuccess);
   return 1;
 }
 
@@ -187,6 +262,8 @@ MwCASTarget<LFMwCASWeak>::MwCAS(  //
     -> size_t
 {
   while (true) {
+    MWCAS_STAT_INC(kMwCASAttempt);
+    [[maybe_unused]] const auto& guard = LFMwCASWeak::CreateEpochGuard();  // H11
     auto* const desc = LFMwCASWeak::GetDescriptor();
     for (const auto pos : positions) {
       auto* const addr = &(target_fields_[pos].val);
@@ -195,6 +272,68 @@ MwCASTarget<LFMwCASWeak>::MwCAS(  //
     }
     if (desc->MwCAS()) break;
   }
+  MWCAS_STAT_INC(kMwCASSuccess);
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<LFMwCASRC>::MwCAS(   //
+    const Operation& positions)  //
+    -> size_t
+{
+  while (true) {  // descriptors are protected by reference counts
+    MWCAS_STAT_INC(kMwCASAttempt);
+    auto* const desc = LFMwCASRC::GetDescriptor();
+    for (const auto pos : positions) {
+      auto* const addr = &(target_fields_[pos].val);
+      const auto old_val = LFMwCASRC::Read<size_t>(addr, kRelaxed);
+      desc->AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
+    }
+    if (desc->MwCAS()) break;
+  }
+  MWCAS_STAT_INC(kMwCASSuccess);
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<OFMwCAS>::MwCAS(  //
+    const Operation& positions) //
+    -> size_t
+{
+  while (true) {
+    MWCAS_STAT_INC(kMwCASAttempt);
+    [[maybe_unused]] const auto& guard = OFMwCAS::CreateEpochGuard();
+    auto* const desc = OFMwCAS::GetDescriptor();
+    for (const auto pos : positions) {
+      auto* const addr = &(target_fields_[pos].val);
+      const auto old_val = OFMwCAS::Read<size_t>(addr, kRelaxed);
+      desc->AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
+    }
+    if (desc->MwCAS()) break;
+  }
+  MWCAS_STAT_INC(kMwCASSuccess);
+  return 1;
+}
+
+template <>
+auto
+MwCASTarget<OFMwCASRC>::MwCAS(  //
+    const Operation& positions) //
+    -> size_t
+{
+  while (true) {  // descriptors are protected by reference counts
+    MWCAS_STAT_INC(kMwCASAttempt);
+    auto* const desc = OFMwCASRC::GetDescriptor();
+    for (const auto pos : positions) {
+      auto* const addr = &(target_fields_[pos].val);
+      const auto old_val = OFMwCASRC::Read<size_t>(addr, kRelaxed);
+      desc->AddMwCASTarget(addr, old_val, old_val + 1, kRelaxed);
+    }
+    if (desc->MwCAS()) break;
+  }
+  MWCAS_STAT_INC(kMwCASSuccess);
   return 1;
 }
 
@@ -232,7 +371,11 @@ template class MwCASTarget<DLFMwCAS>;
 template class MwCASTarget<CASN>;
 template class MwCASTarget<AOPT>;
 template class MwCASTarget<LFMwCAS>;
+template class MwCASTarget<LFMwCASLegacy>;
 template class MwCASTarget<LFMwCASWeak>;
+template class MwCASTarget<LFMwCASRC>;
+template class MwCASTarget<OFMwCAS>;
+template class MwCASTarget<OFMwCASRC>;
 #ifdef MWCAS_BENCH_USE_PMWCAS
 template class MwCASTarget<PMwCAS>;
 #endif

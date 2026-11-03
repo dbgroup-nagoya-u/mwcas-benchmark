@@ -52,6 +52,18 @@ using LFMwCAS = ::dbgroup::atomic::mwcas::lock_free::MwCASDescriptor;
 #include <dbgroup/atomic/mwcas/lock_free/mwcas_descriptor_weak.hpp>
 using LFMwCASWeak = ::dbgroup::atomic::mwcas::lock_free::MwCASDescriptorWeak;
 
+#include <dbgroup/atomic/mwcas/lock_free/mwcas_descriptor_legacy.hpp>
+using LFMwCASLegacy = ::dbgroup::atomic::mwcas::lock_free::MwCASDescriptorLegacy;
+
+#include <dbgroup/atomic/mwcas/lock_free/mwcas_descriptor_rc.hpp>
+using LFMwCASRC = ::dbgroup::atomic::mwcas::lock_free::MwCASDescriptorRC;
+
+#include <dbgroup/atomic/mwcas/obstruction_free/mwcas_descriptor.hpp>
+using OFMwCAS = ::dbgroup::atomic::mwcas::obstruction_free::MwCASDescriptor;
+
+#include <dbgroup/atomic/mwcas/obstruction_free/mwcas_descriptor_rc.hpp>
+using OFMwCASRC = ::dbgroup::atomic::mwcas::obstruction_free::MwCASDescriptorRC;
+
 #ifdef MWCAS_BENCH_USE_PMWCAS
 // C++ standard libraries
 #include <memory>
@@ -85,6 +97,18 @@ class MwCASTarget
   using Operation = OperationEngine::Operation;
 
   /*##########################################################################*
+   * Public constants
+   *##########################################################################*/
+
+  /// @brief Implementations that use EBR for descriptors.
+  static constexpr bool kUseEBR = std::is_same_v<Impl, CASN>              //
+                                  || std::is_same_v<Impl, AOPT>           //
+                                  || std::is_same_v<Impl, LFMwCASWeak>    //
+                                  || std::is_same_v<Impl, LFMwCAS>        //
+                                  || std::is_same_v<Impl, LFMwCASLegacy>  //
+                                  || std::is_same_v<Impl, OFMwCAS>;
+
+  /*##########################################################################*
    * Public constructors and assignment operators
    *##########################################################################*/
 
@@ -105,10 +129,7 @@ class MwCASTarget
     }
 #endif
 
-    if constexpr (std::is_same_v<Impl, CASN>            //
-                  || std::is_same_v<Impl, AOPT>         //
-                  || std::is_same_v<Impl, LFMwCASWeak>  //
-                  || std::is_same_v<Impl, LFMwCAS>) {
+    if constexpr (kUseEBR) {
       const auto cleaner_num = 1UL + static_cast<size_t>(thread_num / 24);  // NOLINT
       Impl::StartGC(::dbgroup::memory::kDefaultGCTime, cleaner_num);
     }
@@ -126,10 +147,7 @@ class MwCASTarget
 
   ~MwCASTarget()
   {
-    if constexpr (std::is_same_v<Impl, CASN>            //
-                  || std::is_same_v<Impl, AOPT>         //
-                  || std::is_same_v<Impl, LFMwCASWeak>  //
-                  || std::is_same_v<Impl, LFMwCAS>) {
+    if constexpr (kUseEBR) {
       Impl::StopGC();
     }
   }
