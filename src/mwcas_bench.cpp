@@ -23,16 +23,17 @@
 // external system libraries
 #include <gflags/gflags.h>
 
-// external libraries
-#include "dbgroup/benchmark/benchmarker.hpp"
-#include "dbgroup/benchmark/validator.hpp"
+// external C++ libraries
+#include <dbgroup/benchmark/benchmarker.hpp>
+#include <dbgroup/benchmark/validator.hpp>
+#include <dbgroup/constants.hpp>
+#include <dbgroup/thread/id_manager.hpp>
 
 // local sources
 #include "dbgroup/mwcas_benchmark/mwcas_target.hpp"
-#include "dbgroup/mwcas_benchmark/operation.hpp"
 #include "dbgroup/mwcas_benchmark/operation_engine.hpp"
 
-/*##############################################################################
+/*############################################################################*
  * Options for selecting competitors
  *############################################################################*/
 
@@ -52,6 +53,16 @@ DEFINE_bool(  //
     "Use AOPT algorithm as a competitor.");
 
 DEFINE_bool(  //
+    lf_mwcas,
+    false,
+    "Use lock-free MwCAS as a competitor.");
+
+DEFINE_bool(  //
+    lf_mwcas_weak,
+    false,
+    "Use lock-free MwCAS weak as a competitor.");
+
+DEFINE_bool(  //
     pmwcas,
     false,
 #ifdef MWCAS_BENCH_USE_PMWCAS
@@ -61,14 +72,9 @@ DEFINE_bool(  //
 #endif
 );
 
-/*##############################################################################
+/*############################################################################*
  * Options for controling workload
  *############################################################################*/
-
-DEFINE_uint64(  //
-    num_exec,
-    1000000,
-    "The number of MwCAS operations executed by each worker.");
 
 DEFINE_uint64(  //
     num_thread,
@@ -85,7 +91,12 @@ DEFINE_uint64(  //
     1000000,
     "The capacity of an array for MwCAS targets.");
 
-/*##############################################################################
+DEFINE_double(  //
+    read_ratio,
+    0,
+    "The ratio of read operations (0 <= read_ratio <= 1).");
+
+/*############################################################################*
  * Utility options
  *############################################################################*/
 
@@ -104,56 +115,78 @@ DEFINE_bool(  //
     false,
     "Output benchmark results as a CSV format.");
 
-DEFINE_bool(  //
-    throughput,
-    true,
-    "true: measure throughput, false: measure latency.");
-
-/*##############################################################################
+/*############################################################################*
  * Option validators
  *############################################################################*/
 
-DEFINE_validator(num_exec, &::dbgroup::benchmark::ValidatePositiveValue);
-DEFINE_validator(num_thread, &::dbgroup::benchmark::ValidatePositiveValue);
+/**
+ * @param flag_name A flag name.
+ * @param ratio A given ratio.
+ * @retval true if a given ratio is in [0, 1].
+ * @retval false otherwise.
+ */
+auto
+ValidateRatio(  //
+    const char* flag_name,
+    const double ratio)  //
+    -> bool
+{
+  if (ratio >= 0.0 && ratio <= 1.0) return true;
+  std::cerr << "A ratio must be in [0, 1]: --" << flag_name << "=" << ratio << "\n";
+  return false;
+}
+
+DEFINE_validator(num_thread, &::dbgroup::benchmark::ValidateThreadNum);
 DEFINE_validator(skew_parameter, &::dbgroup::benchmark::ValidateSkewParameter);
 DEFINE_validator(arr_cap, &::dbgroup::benchmark::ValidatePositiveValue);
+DEFINE_validator(read_ratio, &ValidateRatio);
 DEFINE_validator(seed, &::dbgroup::benchmark::ValidateStr2UInt);
 DEFINE_validator(timeout, &::dbgroup::benchmark::ValidatePositiveValue);
 
-/*##############################################################################
+/*############################################################################*
  * Utility functions
  *############################################################################*/
 
 template <class Impl>
 void
 RunBenchmark(  //
-    const std::string &target_name,
+    const std::string& target_name,
     const size_t target_num)
 {
-  using Ops = ::dbgroup::Operation;
-  using OpsEngine = ::dbgroup::OperationEngine;
+  using OperationEngine = ::dbgroup::OperationEngine;
   using Target = ::dbgroup::MwCASTarget<Impl>;
-  using Bench = ::dbgroup::benchmark::Benchmarker<Target, Ops, OpsEngine>;
+  using Benchmarker = ::dbgroup::benchmark::Benchmarker<Target, OperationEngine>;
+  using Builder = typename Benchmarker::Builder;
 
   const auto seed = (FLAGS_seed.empty()) ? std::random_device{}() : std::stoul(FLAGS_seed);
-  Target target{FLAGS_arr_cap};
-  OpsEngine ops_engine{target_num, FLAGS_arr_cap, FLAGS_skew_parameter, seed};
+  Target target{FLAGS_arr_cap, FLAGS_num_thread};
+  OperationEngine ops_engine{target_num, FLAGS_arr_cap, FLAGS_skew_parameter, seed,
+                             FLAGS_read_ratio};
 
-  Bench bench{target, target_name,      ops_engine, FLAGS_num_exec, FLAGS_num_thread,
-              seed,   FLAGS_throughput, FLAGS_csv,  FLAGS_timeout};
-  bench.Run();
+  Builder builder{target, target_name, ops_engine};
+  builder.SetThreadNum(FLAGS_num_thread);
+  builder.SetTimeOut(FLAGS_timeout);
+  builder.SetRandomSeed(seed);
+  if (FLAGS_csv) {
+    builder.OutputAsCSV();
+  }
+  auto&& bench = builder.Build();
+  bench->Run();
 }
 
-/*##############################################################################
+/*############################################################################*
  * Main function
  *############################################################################*/
 
 auto
 main(  //
     int argc,
-    char *argv[])  //
+    char* argv[])  //
     -> int
 {
+  // set the thread capacity
+  dbgroup::thread::IDManager::SetMaxThreadNum(dbgroup::kMaxThreadCapacity);
+
   // parse command line options
   constexpr bool kRemoveParsedFlags = true;
   gflags::SetUsageMessage("measures throughput/latency of MwCAS implementations.");
@@ -171,10 +204,12 @@ main(  //
     return 1;
   }
 
-  // run benchmark for each implementaton
+  // run benchmark for each implementation
   if (FLAGS_dlf_mwcas) RunBenchmark<DLFMwCAS>("Deadlock-free MwCAS", target_num);
   if (FLAGS_casn) RunBenchmark<CASN>("CASN", target_num);
   if (FLAGS_aopt) RunBenchmark<AOPT>("AOPT", target_num);
+  if (FLAGS_lf_mwcas) RunBenchmark<LFMwCAS>("Lock-free MwCAS", target_num);
+  if (FLAGS_lf_mwcas_weak) RunBenchmark<LFMwCASWeak>("Lock-free MwCAS Weak", target_num);
 #ifdef MWCAS_BENCH_USE_PMWCAS
   if (FLAGS_pmwcas) RunBenchmark<PMwCAS>("PMwCAS", target_num);
 #endif

@@ -19,26 +19,162 @@
 
 // C++ standard libraries
 #include <cstddef>
+#include <random>
+#include <stdexcept>
+#include <string_view>
+#include <utility>
 #include <vector>
 
-// external libraries
-#include "dbgroup/random/zipf.hpp"
-
-// local sources
-#include "dbgroup/mwcas_benchmark/operation.hpp"
+// external C++ libraries
+#include <dbgroup/random/zipf.hpp>
 
 namespace dbgroup
 {
 class OperationEngine
 {
-  /*############################################################################
+  /*##########################################################################*
    * Type aliases
    *##########################################################################*/
 
-  using ZipfDist_t = ::dbgroup::random::ApproxZipfDistribution<size_t>;
+  using Zipf = ::dbgroup::random::ApproxZipfDistribution<size_t>;
 
  public:
-  /*############################################################################
+  /*##########################################################################*
+   * Public types
+   *##########################################################################*/
+
+  /**
+   * @brief An enumeration for representing target operations.
+   *
+   * @note Our benchmark template requires this type.
+   */
+  enum OPType {
+    kRead = 0,
+    kMwCAS,
+    kTotalNum,  /// @note This element is mandatory.
+  };
+
+  /// @note Our benchmark template requires this field.
+  using Operation = std::vector<size_t>;
+
+  /**
+   * @brief A class for iterating an operation queue.
+   *
+   * @note Our benchmark template requires this type.
+   */
+  class OPIter
+  {
+   public:
+    /*########################################################################*
+     * Public constructors and assignment operators
+     *########################################################################*/
+
+    /**
+     * @param target_num The number of target words fow MwCAS.
+     * @param array_cap The capacity of an array.
+     * @param skew_param A skew parameter in Zipf's law.
+     * @param random_seed A seed value for reproducibility.
+     * @param pos_index The index for indicating actual positions in an array.
+     * @param read_ratio The ratio of read operations.
+     */
+    OPIter(  //
+        const size_t target_num,
+        const size_t arr_cap,
+        const double skew_parameter,
+        const size_t rand_seed,
+        Operation pos_index,
+        const double read_ratio)
+        : zipf_{0, arr_cap - 1, skew_parameter}
+        , rand_{rand_seed}
+        , target_num_{target_num}
+        , positions_(target_num, 0)
+        , pos_index_{std::move(pos_index)}
+        , read_ratio_{read_ratio}
+    {
+      ++(*this);
+    }
+
+    OPIter(OPIter&&) noexcept = default;
+    auto operator=(OPIter&&) noexcept -> OPIter& = default;
+
+    // forbit copying
+    OPIter(const OPIter&) = delete;
+    auto operator=(const OPIter& obj) -> OPIter& = delete;
+
+    /*########################################################################*
+     * Public destructor
+     *########################################################################*/
+
+    ~OPIter() = default;
+
+    /*########################################################################*
+     * Public APIs
+     *########################################################################*/
+
+    /**
+     * @retval true if this iterator has other operations.
+     * @retval false otherwise.
+     * @note Our benchmark template requires this operator.
+     */
+    [[nodiscard]] constexpr explicit
+    operator bool() const
+    {
+      return true;
+    }
+
+    /**
+     * @retval 1st: The current operation type.
+     * @retval 2nd: Operation arguments.
+     * @note Our benchmark template requires this operator.
+     */
+    [[nodiscard]] auto
+    operator*() const  //
+        -> std::pair<OPType, Operation>
+    {
+      return {type_, positions_};
+    }
+
+    /**
+     * @brief Advance this iterator.
+     *
+     * @return Oneself.
+     * @note Our benchmark template requires this operator.
+     */
+    auto operator++()  //
+        -> OPIter&;
+
+   private:
+    /*########################################################################*
+     * Internal member variables
+     *########################################################################*/
+
+    /// @brief A zipf distribution.
+    Zipf zipf_{};
+
+    /// @brief A random value generator.
+    std::mt19937_64 rand_{};
+
+    /// @brief The number of target words for MwCAS.
+    size_t target_num_{};
+
+    /// @brief The position of a target page.
+    std::vector<size_t> positions_{};
+
+    /// @brief The index for indicating actual positions in an array.
+    Operation pos_index_{};
+
+    /// @brief The ratio of read operations.
+    double read_ratio_{};
+
+    /// @brief A distribution for selecting operation types.
+    std::uniform_real_distribution<double> type_dist_{0.0, 1.0};
+
+    /// @brief An operation type to be executed.
+    /// @note Our benchmark template requires this field.
+    OPType type_{};
+  };
+
+  /*##########################################################################*
    * Public constructors and assignment operators
    *##########################################################################*/
 
@@ -49,62 +185,83 @@ class OperationEngine
    * @param array_cap The capacity of an array.
    * @param skew_param A skew parameter in Zipf's law.
    * @param random_seed A seed value for reproducibility.
+   * @param read_ratio The ratio of read operations.
    */
   OperationEngine(  //
       size_t target_num,
       size_t array_cap,
       double skew_param,
-      size_t random_seed);
+      size_t random_seed,
+      double read_ratio = 0.0);
 
-  OperationEngine(const OperationEngine &) = default;
-  OperationEngine(OperationEngine &&) = default;
+  OperationEngine(const OperationEngine&) = default;
+  OperationEngine(OperationEngine&&) = default;
 
-  OperationEngine &operator=(const OperationEngine &obj) = default;
-  OperationEngine &operator=(OperationEngine &&) = default;
+  OperationEngine& operator=(const OperationEngine& obj) = default;
+  OperationEngine& operator=(OperationEngine&&) = default;
 
-  /*############################################################################
+  /*##########################################################################*
    * Public destructors
    *##########################################################################*/
 
   ~OperationEngine() = default;
 
-  /*############################################################################
+  /*##########################################################################*
    * Public APIs
    *##########################################################################*/
 
-  /**
-   * @return The number of target operation types.
-   */
-  [[nodiscard]] constexpr auto
-  GetOpsTypeNum() const  //
-      -> size_t
+  /// @note Our benchmark template requires this field.
+  static constexpr auto
+  EnumToString(        //
+      const OPType e)  //
+      -> std::string_view
   {
-    return 1;
+    switch (e) {
+      case kRead:
+        return "Read";
+      case kMwCAS:
+        return "MwCAS";
+      default:
+        throw std::runtime_error{"Found the unkown operation type."};
+    }
   }
 
   /**
-   * @param n The number of operations to be executed by each worker.
-   * @param random_seed A seed value for reproducibility.
-   * @return A sequence of operations for MwCAS.
+   * @brief Get the Operation Iter object
+   *
+   * @param thread_id A unique thread ID.
+   * @param rand_seed A random seed.
+   * @return An iterator for generating operations.
+   * @note Our benchmark template requires this function.
    */
-  [[nodiscard]] auto Generate(  //
-      size_t n,
-      size_t random_seed) const  //
-      -> std::vector<Operation>;
+  [[nodiscard]] auto
+  GetOPIter(  //
+      [[maybe_unused]] const size_t thread_id,
+      const size_t rand_seed) const  //
+      -> OPIter
+  {
+    return OPIter{target_num_, arr_cap_, skew_parameter_, rand_seed, pos_index_, read_ratio_};
+  }
 
  private:
-  /*############################################################################
+  /*##########################################################################*
    * Internal member variables
    *##########################################################################*/
 
   /// @brief The index for indicating actual positions in an array.
   std::vector<size_t> pos_index_{};
 
+  /// @brief The capacity of an array.
+  size_t arr_cap_{};
+
   /// @brief The number of target words for MwCAS.
   size_t target_num_{};
 
-  /// @brief A random value generator according to Zipf's law.
-  ZipfDist_t zipf_dist_{};
+  /// @brief A skew parameter in Zipf's law.
+  double skew_parameter_{};
+
+  /// @brief The ratio of read operations.
+  double read_ratio_{};
 };
 
 }  // namespace dbgroup

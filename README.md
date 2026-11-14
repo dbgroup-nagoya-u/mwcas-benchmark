@@ -27,6 +27,7 @@ cd mwcas-benchmark
 - `MWCAS_BENCH_TARGET_NUM`: The maximum number of target words of MwCAS (default `8`).
 - `MWCAS_BENCH_USE_PMWCAS`: A flag for using microsoft/pmwcas as a competitor (default `OFF`).
     - If you use microsoft/pmwcas, you need to install `libnuma-dev` by `apt`.
+- `MWCAS_BENCH_USE_MIMALLOC`: A flag for overriding entire memory allocation by [mimalloc](https://github.com/microsoft/mimalloc) (default `OFF`).
 - `MWCAS_BENCH_USE_TBBMALLOC`: A flag for overriding entire memory allocation by Intel oneTBB malloc (default `OFF`).
     - You can set up  [Intel OneAPI Base Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit.html) (i.e., Threading Building Blocks) by following [this instruction](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html?operatingsystem=linux&linux-install-type=apt). If you prefer to install oneTBB separately, you can use `intel-oneapi-tbb-devel` instead of `intel-basekit`.
 
