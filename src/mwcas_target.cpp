@@ -169,6 +169,7 @@ MwCASTarget<LFMwCAS>::MwCAS(     //
     -> size_t
 {
   while (true) {
+    [[maybe_unused]] const auto& guard = LFMwCAS::CreateEpochGuard();
     auto* const desc = LFMwCAS::GetDescriptor();
     for (const auto pos : positions) {
       auto* const addr = &(target_fields_[pos].val);
@@ -187,6 +188,7 @@ MwCASTarget<LFMwCASWeak>::MwCAS(  //
     -> size_t
 {
   while (true) {
+    [[maybe_unused]] const auto& guard = LFMwCASWeak::CreateEpochGuard();
     auto* const desc = LFMwCASWeak::GetDescriptor();
     for (const auto pos : positions) {
       auto* const addr = &(target_fields_[pos].val);
